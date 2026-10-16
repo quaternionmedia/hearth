@@ -175,3 +175,9 @@ def test_a_member_of_another_family_is_not_hosted_in_the_hub(showrunner_hub):
 
     with pytest.raises(ValueError, match="two families meet across a protocol"):
         hosting.plugin(lambda settings: Clock(), name="carlos", family="instruments")
+
+
+def test_a_probe_may_ask_the_read_routes_with_head(clock):
+    with TestClient(web.app(clock)) as client:
+        assert [client.head(f"/family/{route}").status_code
+                for route in ("state", "identity")] == [200, 200]

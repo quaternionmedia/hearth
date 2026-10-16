@@ -168,14 +168,14 @@ def _check_events(client: httpx.Client, base: str, report: Report, name: object,
     # Fired once the stream is open, so the event it causes cannot be missed.
     poster = threading.Thread(target=fire)
     poster.start()
-    seen = None
+    seen, broke = None, False
     try:
         for snapshot in stream:
             if (snapshot.get("cue") or {}).get("number") == number:
                 seen = time.perf_counter()
                 break
     except httpx.HTTPError as exc:
-        report.add(False, "the cue reaches a follower as an event", repr(exc))
+        broke = report.add(False, "the cue reaches a follower as an event", repr(exc)) or True
     finally:
         stream.close()
         poster.join(timeout)
@@ -188,8 +188,9 @@ def _check_events(client: httpx.Client, base: str, report: Report, name: object,
         report.timings["cue answered ms"] = round((sent["answered"] - sent["at"]) * 1000, 1)
     if seen is not None:
         report.timings["cue to event ms"] = round((seen - sent["at"]) * 1000, 1)
-    report.add(seen is not None, "the cue reaches a follower as an event",
-               "" if seen is not None else f"no event named cue {number} within {timeout:g}s")
+    if not broke:  # a stream that broke has said so already
+        report.add(seen is not None, "the cue reaches a follower as an event",
+                   "" if seen is not None else f"no event named cue {number} within {timeout:g}s")
 
 
 def _json(response: object) -> object:

@@ -110,14 +110,14 @@ def router(member: Member | Callable[[], Member | None]) -> APIRouter:
         status, answer = await run_in_threadpool(this.receive, body)
         return JSONResponse(answer, status_code=status)
 
-    @routes.get("/state")
+    @routes.api_route("/state", methods=["GET", "HEAD"])
     async def state():
         try:
             return JSONResponse(started().snapshot(), headers=OPEN)
         except _NotStarted:
             return _not_started()
 
-    @routes.get("/identity")
+    @routes.api_route("/identity", methods=["GET", "HEAD"])
     async def identity():
         try:
             return JSONResponse(started().identity(), headers=OPEN)

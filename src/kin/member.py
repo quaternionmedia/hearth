@@ -64,9 +64,14 @@ class Member(ABC):
     verbs: ClassVar[tuple[str, ...]] = ()
     later: ClassVar[bool] = False
 
-    def __init__(self) -> None:
+    def __init__(self, *, version: str | None = None, instance: str | None = None) -> None:
+        """``version`` and ``instance`` name this running member when the process
+        knows them better than the class does: a build's version, a server's own
+        instance id that its health route also reports."""
         self.cue: dict | None = None
-        self.instance = uuid.uuid4().hex[:12]
+        if version is not None:
+            self.version = version
+        self.instance = instance or uuid.uuid4().hex[:12]
         self._lock = threading.RLock()
         self._followers: list[Follower] = []
 

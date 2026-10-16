@@ -101,3 +101,11 @@ def test_identity_names_the_member_its_family_and_this_instance():
         {"member": "clock", "family": "show-control", "version": "test",
          "contract": "family/1", "verbs": ["clock"]}
     assert said["instance"] != other.identity()["instance"]
+
+
+def test_a_running_member_may_name_its_own_version_and_instance():
+    named = Clock.__new__(Clock)
+    Clock.__bases__[0].__init__(named, version="1.2.3", instance="pid-42")
+
+    assert (named.identity()["version"], named.identity()["instance"]) == ("1.2.3", "pid-42")
+    assert Clock().identity()["version"] == "test"
