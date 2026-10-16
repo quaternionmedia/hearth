@@ -19,9 +19,14 @@ host:
 `--action '{"clock": "lap"}'` also sends one real cue and times it to the
 member's answer and to the event a follower receives.
 
-The contract is [`docs/contract.md`](docs/contract.md). A page follows a
-member with [`src/kin/static/follow.js`](src/kin/static/follow.js): the event
-stream first, polling only while it is down.
+The contract is [`docs/contract.md`](docs/contract.md); which host serves a
+member, and what a hub owes one it hosts, is
+[`docs/hosting.md`](docs/hosting.md). A page follows a member with
+[`src/kin/static/follow.js`](src/kin/static/follow.js): the event stream
+first, polling only while it is down.
+
+[`walkthrough/`](walkthrough/) is a member built and served three ways, run
+by `uv run pytest` as doctests.
 
 FastAPI keeps an included router as one entry in `app.routes`, so code that
 lists an app's routes finds kin's with `fastapi.routing.iter_route_contexts`.
