@@ -89,15 +89,27 @@ class Member(ABC):
     # --- what every member does the same way -------------------------------
 
     def receive(self, body: object) -> tuple[int, dict]:
-        """Act on one cue's body: the HTTP status and the answer. Never raises ``Refused``."""
+        """Act on one cue's body: the HTTP status and the answer. Never raises.
+
+        The change runs under the member's lock with ``self.cue`` already the cue
+        it acts on, so a change that needs its cue -- a recording named for it --
+        reads it there. A change that raises leaves the record of the last cue as
+        it was and is answered 500 in the contract's shape.
+        """
         try:
             cue, action = self._envelope(body)
             change = self.understand(action)
         except Refused as refusal:
             return 422, {"ok": False, "error": str(refusal)}
         with self._lock:
-            change()
-            self.cue = cue
+            previous, self.cue = self.cue, cue
+            try:
+                change()
+            except Exception as exc:  # noqa: BLE001 -- the member's fault, answered, never raised
+                self.cue = previous
+                return 500, {"ok": False,
+                             "error": f"{self.name} failed acting on the cue: "
+                                      f"{type(exc).__name__}: {exc}"}
             state = self.state()
         self.changed()
         return (202 if self.later else 200), {"ok": True, "state": state}

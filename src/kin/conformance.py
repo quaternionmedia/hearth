@@ -153,14 +153,17 @@ def _check_events(client: httpx.Client, base: str, report: Report, name: object,
 
     number = f"kin-{int(time.time() * 1000)}"
     sent: dict[str, object] = {}
+    # Made before the clock starts: making a client loads its TLS setup, which
+    # on Windows is a quarter of a second the member never spent.
+    sender = httpx.Client(timeout=timeout)
 
     def fire() -> None:
-        sent["at"] = time.perf_counter()
-        with httpx.Client(timeout=timeout) as poster:
-            sent["answer"] = poster.post(f"{base}/family/cue", json={
+        with sender:
+            sent["at"] = time.perf_counter()
+            sent["answer"] = sender.post(f"{base}/family/cue", json={
                 "cue": {"number": number, "name": "conformance", "fired_at": None},
                 "action": action})
-        sent["answered"] = time.perf_counter()
+            sent["answered"] = time.perf_counter()
 
     # Fired once the stream is open, so the event it causes cannot be missed.
     poster = threading.Thread(target=fire)

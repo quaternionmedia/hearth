@@ -40,6 +40,41 @@ def test_work_that_finishes_later_is_answered_202(clock):
     assert Later().receive({"cue": CUE, "action": {"clock": "lap"}})[0] == 202
 
 
+def test_a_change_sees_its_own_cue(clock):
+    """Mutation: the cue recorded after the change -- red here (the change sees the last one)."""
+    seen = []
+
+    class Named(Clock):
+        def understand(self, action):
+            return lambda: seen.append(self.cue)
+
+    named = Named()
+    named.receive({"cue": CUE, "action": {"clock": "lap"}})
+    named.receive({"cue": {**CUE, "number": "4"}, "action": {"clock": "lap"}})
+
+    assert [cue["number"] for cue in seen] == ["3", "4"]
+
+
+def test_a_change_that_fails_is_answered_500_and_records_nothing(clock):
+    class Broken(Clock):
+        def understand(self, action):
+            if action["clock"] == "lap":
+                return super().understand(action)
+
+            def change():
+                raise OSError("the disk is full")
+
+            return change
+
+    broken = Broken()
+    broken.receive({"cue": CUE, "action": {"clock": "lap"}})
+    status, answer = broken.receive({"cue": {**CUE, "number": "4"}, "action": {"clock": "x"}})
+
+    assert (status, answer) == (500, {"ok": False, "error": "clock failed acting on the cue: "
+                                                            "OSError: the disk is full"})
+    assert broken.snapshot()["cue"] == CUE
+
+
 def test_every_follower_is_told_each_change_and_a_broken_one_stops_nobody(clock):
     told, also = [], []
 
