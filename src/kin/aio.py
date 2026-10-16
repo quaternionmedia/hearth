@@ -3,6 +3,11 @@
 ShowStopper serves its page with textual-serve, which is aiohttp; these are the
 same four routes ``kin.web.router`` serves on FastAPI, answering the same way,
 from the same event stream.
+
+``attach(app, member)`` is the whole of it: the routes, the member's
+``start``/``stop`` on the application's own startup and cleanup, and every open
+stream closed when the application shuts down -- without that, aiohttp waits
+for each follower's stream to end before it will stop.
 """
 
 from __future__ import annotations
@@ -13,8 +18,31 @@ from .member import Member, Refused, body_of
 from .web import HEARTBEAT, OPEN, frames
 
 
-def routes(member: Member, heartbeat: float = HEARTBEAT) -> list:
-    """``POST /family/cue``, ``GET /family/state``, ``/family/events`` and ``/family/identity``."""
+def attach(app, member: Member, heartbeat: float = HEARTBEAT) -> None:
+    """Serve ``member``'s contract on aiohttp application ``app``, for the application's life."""
+    closing = asyncio.Event()
+
+    async def started(_) -> None:
+        await asyncio.get_running_loop().run_in_executor(None, member.start)
+
+    async def shutting(_) -> None:
+        closing.set()
+
+    async def stopped(_) -> None:
+        await asyncio.get_running_loop().run_in_executor(None, member.stop)
+
+    app.add_routes(routes(member, heartbeat, closing))
+    app.on_startup.append(started)
+    app.on_shutdown.append(shutting)
+    app.on_cleanup.append(stopped)
+
+
+def routes(member: Member, heartbeat: float = HEARTBEAT,
+           closing: asyncio.Event | None = None) -> list:
+    """``POST /family/cue``, ``GET /family/state``, ``/family/events`` and ``/family/identity``.
+
+    ``closing``, once set, ends every open stream; ``attach`` sets it at shutdown.
+    """
     from aiohttp import web
 
     async def cue(request: web.Request) -> web.Response:
@@ -34,7 +62,9 @@ def routes(member: Member, heartbeat: float = HEARTBEAT) -> list:
 
     async def events(request: web.Request) -> web.StreamResponse:
         async def gone() -> bool:
-            return request.transport is None or request.transport.is_closing()
+            transport = request.transport
+            return (transport is None or transport.is_closing()
+                    or (closing is not None and closing.is_set()))
 
         response = web.StreamResponse(headers={**OPEN, "Content-Type": "text/event-stream",
                                                "Cache-Control": "no-cache"})
@@ -42,7 +72,7 @@ def routes(member: Member, heartbeat: float = HEARTBEAT) -> list:
         try:
             async for item in frames(member, gone, heartbeat):
                 await response.write(item.encode())
-        except (ConnectionResetError, asyncio.CancelledError):
+        except ConnectionResetError:  # the follower went between two looks
             pass
         return response
 

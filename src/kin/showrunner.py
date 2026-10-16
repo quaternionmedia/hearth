@@ -82,9 +82,15 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
 
         @showrunner.hookimpl
         def showrunner_family_members(self):
-            if self.member is None:
-                return None
-            return {name: self.member.receive}
+            # Found at each call, so the hub may ask before this plugin's startup
+            # has made the member, and a cue that comes first is answered 503.
+            return {name: self.receive}
+
+        def receive(self, body):
+            member = self.member
+            if member is None:
+                return 503, {"ok": False, "error": f"{name} has not started"}
+            return member.receive(body)
 
         @showrunner.hookimpl
         def showrunner_get_nav(self):
@@ -92,4 +98,7 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
 
     Hosted.__name__ = f"{name.capitalize()}Hosted"
     Hosted.__doc__ = Hosted.__doc__.format(name=name, family=family)
-    return Hosted()
+    hosted = Hosted()
+    # ShowRunner disables an external plugin by this name, so it is the member's.
+    hosted.__name__ = name
+    return hosted

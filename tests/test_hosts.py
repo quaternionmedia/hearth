@@ -2,32 +2,32 @@
 
 from __future__ import annotations
 
-import sys
+import threading
+import time
 import types
 
 import httpx
-import pluggy
 import pytest
 from conftest import Clock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from kin import conformance, web
+from kin import conformance, testing, web
 
 
 def test_alone_it_conforms_and_a_cue_reaches_a_follower(serve, clock):
-    served = serve(web.app(clock))
+    url = serve(web.app(clock))
 
-    report = conformance.check(served.url, action={"clock": "lap"})
+    report = conformance.check(url, action={"clock": "lap"})
 
     assert report.status == 0, "\n".join(map(str, report.findings))
     assert clock.started == 1
     assert {"first event ms", "cue answered ms", "cue to event ms"} <= set(report.timings)
 
 
-def test_its_lifecycle_rides_the_asgi_lifespan(serve, clock):
-    served = serve(web.app(clock))
-    served.close()
+def test_its_lifecycle_rides_the_asgi_lifespan(clock):
+    with testing.serving(web.app(clock)):
+        assert (clock.started, clock.stopped) == (1, 0)
 
     assert (clock.started, clock.stopped) == (1, 1)
 
@@ -65,11 +65,14 @@ def test_a_member_that_breaks_the_contract_does_not_conform(serve):
                 self.cue = body["cue"]
             return super().receive(body)
 
-    report = conformance.check(serve(web.app(Careless())).url)
+    report = conformance.check(serve(web.app(Careless())))
 
     assert report.status == 1
     assert [f.what for f in report.findings if not f.ok] == \
         ["a refused cue changes nothing, the record of the last cue included"]
+
+
+# --- beside an aiohttp page ----------------------------------------------------
 
 
 def test_beside_an_aiohttp_page_it_conforms_the_same(aio_serve, clock):
@@ -78,59 +81,51 @@ def test_beside_an_aiohttp_page_it_conforms_the_same(aio_serve, clock):
     from kin import aio
 
     application = aioweb.Application()
-    application.add_routes(aio.routes(clock))
+    aio.attach(application, clock)
 
-    report = conformance.check(aio_serve(application).url, action={"clock": "start"})
+    report = conformance.check(aio_serve(application), action={"clock": "start"})
 
     assert report.status == 0, "\n".join(map(str, report.findings))
+    assert clock.started == 1
+
+
+def test_an_open_stream_does_not_hold_the_page_s_shutdown(clock):
+    """Mutation: attach no longer closes streams at shutdown -- red here (aiohttp waits)."""
+    from aiohttp import web as aioweb
+
+    from kin import aio
+
+    application = aioweb.Application()
+    aio.attach(application, clock)
+    opened = threading.Event()
+
+    def follow(url: str) -> None:
+        try:
+            with httpx.stream("GET", f"{url}/family/events", timeout=30) as stream:
+                for _ in stream.iter_lines():
+                    opened.set()
+        except httpx.HTTPError:
+            pass
+
+    with testing.serving_aiohttp(application) as url:
+        threading.Thread(target=follow, args=(url,), daemon=True).start()
+        assert opened.wait(5)
+        began = time.monotonic()
+    took = time.monotonic() - began
+
+    assert took < 5, f"shutting down with a follower took {took:.1f}s"
+    assert clock.stopped == 1
 
 
 # --- inside ShowRunner ---------------------------------------------------------
 
 
-@pytest.fixture()
-def showrunner_hub(monkeypatch):
-    """ShowRunner's hook marker and the four hooks the adapter answers, without ShowRunner.
-
-    The real hub is tested in ShowRunner; this holds the adapter to the hook
-    names ShowRunner's hookspecs declare.
-    """
-    fake = types.ModuleType("showrunner")
-    fake.hookimpl = pluggy.HookimplMarker("showrunner")
-    monkeypatch.setitem(sys.modules, "showrunner", fake)
-    spec = pluggy.HookspecMarker("showrunner")
-
-    class Spec:
-        @spec
-        def showrunner_register(self): ...
-
-        @spec
-        def showrunner_startup(self, app): ...
-
-        @spec
-        def showrunner_shutdown(self, app): ...
-
-        @spec
-        def showrunner_get_routes(self): ...
-
-        @spec
-        def showrunner_family_members(self): ...
-
-        @spec
-        def showrunner_get_nav(self): ...
-
-    pm = pluggy.PluginManager("showrunner")
-    pm.add_hookspecs(Spec)
-    return pm
-
-
-def test_inside_the_hub_it_conforms_at_the_hub_s_address(showrunner_hub, serve):
+def hosted_clock(showrunner_hub, made=None):
     from kin import showrunner as hosting
 
-    made = []
-
     def make(settings):
-        made.append(settings)
+        if made is not None:
+            made.append(settings)
         return Clock()
 
     hosted = hosting.plugin(make, name="clock", family="show-control")
@@ -138,18 +133,41 @@ def test_inside_the_hub_it_conforms_at_the_hub_s_address(showrunner_hub, serve):
     api = FastAPI()
     for routes in showrunner_hub.hook.showrunner_get_routes():
         api.include_router(routes)
+    return hosted, api
 
+
+def test_inside_the_hub_it_conforms_at_the_hub_s_address(showrunner_hub, serve):
+    made = []
+    _, api = hosted_clock(showrunner_hub, made)
     config = types.SimpleNamespace(plugins=types.SimpleNamespace(settings={"clock": {"x": 1}}))
     showrunner_hub.hook.showrunner_startup(app=types.SimpleNamespace(config=config))
-    served = serve(api)
+    url = serve(api)
 
-    report = conformance.check(f"{served.url}/clock", action={"clock": "lap"})
+    report = conformance.check(f"{url}/clock", action={"clock": "lap"})
 
     assert report.status == 0, "\n".join(map(str, report.findings))
     assert made == [{"x": 1}]
     [members] = [m for m in showrunner_hub.hook.showrunner_family_members() if m]
     assert members["clock"]({"cue": {"number": "9"}, "action": {"clock": "lap"}})[0] == 200
-    assert httpx.get(f"{served.url}/clock/family/state").json()["cue"] == {"number": "9"}
+    assert httpx.get(f"{url}/clock/family/state").json()["cue"] == {"number": "9"}
+
+
+def test_the_hub_may_ask_for_its_members_before_their_startup(showrunner_hub):
+    """The hub's own startup may run first: the member is found at each call, not at asking."""
+    hosted_clock(showrunner_hub)
+    [members] = [m for m in showrunner_hub.hook.showrunner_family_members() if m]
+    body = {"cue": {"number": "1"}, "action": {"clock": "lap"}}
+
+    assert members["clock"](body) == (503, {"ok": False, "error": "clock has not started"})
+    showrunner_hub.hook.showrunner_startup(app=types.SimpleNamespace(config=None))
+    assert members["clock"](body)[0] == 200
+
+
+def test_the_hosted_plugin_answers_to_the_member_s_name(showrunner_hub):
+    """ShowRunner disables an external plugin by ``__name__``, lowercased."""
+    hosted, _ = hosted_clock(showrunner_hub)
+
+    assert hosted.__name__ == "clock"
 
 
 def test_a_member_of_another_family_is_not_hosted_in_the_hub(showrunner_hub):
