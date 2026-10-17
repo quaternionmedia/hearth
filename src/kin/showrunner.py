@@ -62,6 +62,7 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
     import showrunner
 
     say = log or logging.getLogger("kin").warning
+    note = log or logging.getLogger("kin").info  # good news is not a warning
 
     class Hosted:
         """{name}, a member of {family}, hosted in the hub's process."""
@@ -123,7 +124,7 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
                     return
                 self.member = member
                 if self.tries > 1:
-                    say(f"{name} is ready, at try {self.tries}")
+                    note(f"{name} is ready, at try {self.tries}")
                 self.why = ""
 
         @showrunner.hookimpl
