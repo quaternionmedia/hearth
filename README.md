@@ -28,6 +28,12 @@ first, polling only while it is down.
 [`walkthrough/`](walkthrough/) is a member built and served three ways, run
 by `uv run pytest` as doctests.
 
+`kin.supervise` keeps members served alone running beside a hub, restarting
+one that stops on Companion's schedule. [`bench/hosting.py`](bench/hosting.py)
+measures what hosting costs and what it risks against serving alone;
+[`demo/proposal.py`](demo/proposal.py) runs the whole arrangement on one
+machine, ShowRunner as the hub, with a panel that says what to try.
+
 FastAPI keeps an included router as one entry in `app.routes`, so code that
 lists an app's routes finds kin's with `fastapi.routing.iter_route_contexts`.
 
