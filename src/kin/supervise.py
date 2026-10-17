@@ -43,11 +43,19 @@ def companion_backoff(restarts: int) -> float:
 
 @dataclass
 class Spec:
+    """A member to keep running: its command, where it answers, and how to tell it is up.
+
+    ``ready`` is the path probed; a member keeping ``family/1`` is up when its
+    ``/family/identity`` answers. A page with no routes of its own (leo follows
+    the hub) is up when ``ready="/"`` answers, and has no instance to keep.
+    """
+
     name: str
     command: list[str]
     url: str
     cwd: str | None = None
     env: dict[str, str] | None = None
+    ready: str = "/family/identity"
 
 
 @dataclass
@@ -136,12 +144,18 @@ class Supervisor:
                                 env={**os.environ, **(spec.env or {})},
                                 stdout=out, stderr=subprocess.STDOUT, **flags)
 
-    def _identity(self, client: httpx.Client, url: str) -> dict | None:
+    def _identity(self, client: httpx.Client, spec: Spec) -> dict | None:
         try:
-            said = client.get(f"{url.rstrip('/')}/family/identity")
+            said = client.get(f"{spec.url.rstrip('/')}{spec.ready}")
         except httpx.HTTPError:
             return None
-        return said.json() if said.status_code == 200 else None
+        if said.status_code != 200:
+            return None
+        try:
+            answer = said.json()
+        except ValueError:
+            answer = None
+        return answer if isinstance(answer, dict) else {}
 
     def _keep(self, watched: Watched) -> None:
         name = watched.spec.name
@@ -152,7 +166,7 @@ class Supervisor:
                 watched.pid = process.pid
                 deadline = time.monotonic() + self.up_within
                 while not self._stop.is_set() and process.poll() is None:
-                    said = self._identity(client, watched.spec.url)
+                    said = self._identity(client, watched.spec)
                     if said is not None:
                         watched.state, watched.since = "up", time.monotonic()
                         watched.instance = said.get("instance")
