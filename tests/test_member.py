@@ -10,7 +10,8 @@ CUE = {"number": "3", "name": "Second tune", "fired_at": "2026-10-15T21:00:00+00
 def test_an_understood_cue_is_acted_on_recorded_and_answered_200(clock):
     status, answer = clock.receive({"cue": CUE, "action": {"clock": "start"}})
 
-    assert (status, answer) == (200, {"ok": True, "state": {"running": True, "laps": 0}})
+    assert (status, answer) == (200, {"ok": True, "state": {"running": True, "laps": 0},
+                                      "instance": clock.instance})
     assert clock.snapshot() == {"member": "clock", "cue": CUE,
                                 "state": {"running": True, "laps": 0}}
 

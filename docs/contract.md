@@ -29,10 +29,14 @@ The three `GET` routes are readable from any origin
 
 | Status | Body | Meaning |
 |---|---|---|
-| 200 | `{"ok": true, "state": {...}}` | done |
-| 202 | `{"ok": true, "state": {...}}` | taken; the work finishes after the answer, and `state` says when |
+| 200 | `{"ok": true, "state": {...}, "instance": "..."}` | done |
+| 202 | `{"ok": true, "state": {...}, "instance": "..."}` | taken; the work finishes after the answer, and `state` says when |
 | 422 | `{"ok": false, "error": "..."}` | not understood: a body that is not JSON, a cue that is not an object, an action it does not take |
 | 500 | `{"ok": false, "error": "..."}` | understood, and the member failed acting on it |
+
+`instance` is the one `GET /family/identity` names: the running instance that
+took this cue. A hub attributes the delivery to it, so a member that restarted
+between two cues is never credited to the instance before it.
 
 **A refused cue changes nothing**, the record of the last cue included. A cue
 the member failed to act on leaves the record of the last cue as it was.

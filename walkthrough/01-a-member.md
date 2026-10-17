@@ -40,12 +40,15 @@ all.
 ## A cue
 
 The hub delivers each member its part of a cue's `family` block, as the body
-of `POST /family/cue`. `receive` is that route without the route:
+of `POST /family/cue`. `receive` is that route without the route; its answer
+names the instance that took the cue, so a hub attributes the delivery to it
+even if the member restarted since the hub last asked:
 
 ```python
 >>> cue = {"number": "3", "name": "Second tune", "fired_at": None}
->>> clock.receive({"cue": cue, "action": {"clock": "start"}})
-(200, {'ok': True, 'state': {'running': True, 'laps': 0}})
+>>> status, answer = clock.receive({"cue": cue, "action": {"clock": "start"}})
+>>> status, answer["state"], answer["instance"] == clock.instance
+(200, {'running': True, 'laps': 0}, True)
 >>> clock.snapshot()
 {'member': 'clock', 'cue': {'number': '3', 'name': 'Second tune', 'fired_at': None}, 'state': {'running': True, 'laps': 0}}
 

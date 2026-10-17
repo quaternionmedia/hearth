@@ -5,9 +5,10 @@ block. Every member answers the same four routes, whatever serves them
 (``docs/contract.md``)::
 
     POST /family/cue       {"cue": {"number", "name", "fired_at"}, "action": {...}}
-                           200 {"ok": true, "state": {...}}   done
-                           202 {"ok": true, "state": {...}}   taken; finishes later
+                           200 {"ok": true, "state": {...}, "instance"}  done
+                           202 {"ok": true, "state": {...}, "instance"}  taken; finishes later
                            422 {"ok": false, "error": "..."}  not understood
+                           500 {"ok": false, "error": "..."}  failed acting on it
     GET  /family/state     {"member": name, "cue": {...} | null, "state": {...}}
     GET  /family/events    text/event-stream: the state now, then at every change
     GET  /family/identity  {"member", "family", "version", "contract", "verbs",
@@ -117,7 +118,10 @@ class Member(ABC):
                                       f"{type(exc).__name__}: {exc}"}
             state = self.state()
         self.changed()
-        return (202 if self.later else 200), {"ok": True, "state": state}
+        # The instance that took the cue rides on the answer, so a hub attributes
+        # the delivery to it even when the member restarted between two cues.
+        return (202 if self.later else 200), {"ok": True, "state": state,
+                                              "instance": self.instance}
 
     def _envelope(self, body: object) -> tuple[dict, dict]:
         if not isinstance(body, dict):
