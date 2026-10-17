@@ -80,7 +80,7 @@ so this page does not need ShowRunner installed:
 ...     api = FastAPI()
 ...     for routes in hub.hook.showrunner_get_routes():
 ...         api.include_router(routes)
-...     _ = hub.hook.showrunner_startup(app=types.SimpleNamespace(config=None))
+...     _ = hub.hook.showrunner_startup(app=testing.hub_app(hub))
 ...     with testing.serving(api) as url:
 ...         report = conformance.check(f"{url}/clock", action={"clock": "lap"})
 ...     [members] = [m for m in hub.hook.showrunner_family_members() if m]
@@ -96,15 +96,20 @@ The same check, at the hub's address, passes the same way.
 ## Only the hub's own family
 
 Two families meet across a protocol, never an import. A member of another
-family is served alone and named to the hub by its URL; the hub will not host
-it:
+family is served alone and named to the hub by its URL. The hub says which
+family it is in, and the hosted plugin reads it from the hub at startup; a
+member of another family is never made, and its routes say why:
 
 ```python
->>> with testing.showrunner_hub():
-...     hosting.plugin(lambda settings: Clock(), name="carlos", family="instruments")
-Traceback (most recent call last):
-  ...
-ValueError: carlos is in instruments, not the hub's show-control: two families meet across a protocol, so serve it alone and name its URL in [plugins.family.members]
+>>> with testing.showrunner_hub(family="show-control") as hub:
+...     carlos = hosting.plugin(lambda settings: Clock(), name="carlos",
+...                             family="instruments", log=lambda text: None)
+...     _ = hub.register(carlos)
+...     _ = hub.hook.showrunner_startup(app=testing.hub_app(hub))
+>>> carlos.member is None
+True
+>>> print(carlos.why)
+carlos is not hosted: it is in instruments, the hub in 'show-control'; two families meet across a protocol, so serve it alone and name its URL in [plugins.family.members]
 
 ```
 

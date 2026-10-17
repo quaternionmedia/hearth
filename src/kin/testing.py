@@ -89,11 +89,14 @@ def serving_aiohttp(application) -> Iterator[str]:
 
 
 @contextmanager
-def showrunner_hub():
+def showrunner_hub(family: str = "show-control", hosts_members: bool = True):
     """A pluggy manager with ShowRunner's hook marker and the hooks kin answers, no ShowRunner.
 
     It stands a module called ``showrunner`` in ``sys.modules`` for the
-    duration, so ``kin.showrunner.plugin`` builds against it.
+    duration, so ``kin.showrunner.plugin`` builds against it. The hub says it is
+    of ``family``; with ``hosts_members=False`` it is a hub that predates hosting
+    and declares neither ``showrunner_hub_identity`` nor
+    ``showrunner_family_members``. Start it with ``hub_app(hub)``.
     """
     import pluggy
 
@@ -115,13 +118,26 @@ def showrunner_hub():
         def showrunner_get_routes(self): ...
 
         @spec
+        def showrunner_get_nav(self): ...
+
+    class Hosting:
+        @spec
         def showrunner_family_members(self): ...
 
-        @spec
-        def showrunner_get_nav(self): ...
+        @spec(firstresult=True)
+        def showrunner_hub_identity(self): ...
+
+    class StandIn:
+        @fake.hookimpl
+        def showrunner_hub_identity(self):
+            return {"hub": "stand-in", "family": family, "contract": "family/1",
+                    "instance": "stand-in"}
 
     hub = pluggy.PluginManager("showrunner")
     hub.add_hookspecs(Spec)
+    if hosts_members:
+        hub.add_hookspecs(Hosting)
+        hub.register(StandIn(), name="stand-in-hub")
     previous = sys.modules.get("showrunner")
     sys.modules["showrunner"] = fake
     try:
@@ -131,3 +147,9 @@ def showrunner_hub():
             sys.modules.pop("showrunner", None)
         else:
             sys.modules["showrunner"] = previous
+
+
+def hub_app(hub, settings: dict | None = None) -> types.SimpleNamespace:
+    """What ShowRunner hands a plugin's startup: its plugin manager and its config."""
+    plugins = types.SimpleNamespace(settings=settings or {})
+    return types.SimpleNamespace(pm=hub, config=types.SimpleNamespace(plugins=plugins))

@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import threading
 import time
-import types
 
 import httpx
-import pytest
 from conftest import Clock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -120,15 +118,15 @@ def test_an_open_stream_does_not_hold_the_page_s_shutdown(clock):
 # --- inside ShowRunner ---------------------------------------------------------
 
 
-def hosted_clock(showrunner_hub, made=None):
+def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock):
     from kin import showrunner as hosting
 
     def make(settings):
         if made is not None:
             made.append(settings)
-        return Clock()
+        return clock()
 
-    hosted = hosting.plugin(make, name="clock", family="show-control")
+    hosted = hosting.plugin(make, name="clock", family=family, log=lambda text: None)
     showrunner_hub.register(hosted)
     api = FastAPI()
     for routes in showrunner_hub.hook.showrunner_get_routes():
@@ -139,8 +137,8 @@ def hosted_clock(showrunner_hub, made=None):
 def test_inside_the_hub_it_conforms_at_the_hub_s_address(showrunner_hub, serve):
     made = []
     _, api = hosted_clock(showrunner_hub, made)
-    config = types.SimpleNamespace(plugins=types.SimpleNamespace(settings={"clock": {"x": 1}}))
-    showrunner_hub.hook.showrunner_startup(app=types.SimpleNamespace(config=config))
+    showrunner_hub.hook.showrunner_startup(
+        app=testing.hub_app(showrunner_hub, {"clock": {"x": 1}}))
     url = serve(api)
 
     report = conformance.check(f"{url}/clock", action={"clock": "lap"})
@@ -159,7 +157,7 @@ def test_the_hub_may_ask_for_its_members_before_their_startup(showrunner_hub):
     body = {"cue": {"number": "1"}, "action": {"clock": "lap"}}
 
     assert members["clock"](body) == (503, {"ok": False, "error": "clock has not started"})
-    showrunner_hub.hook.showrunner_startup(app=types.SimpleNamespace(config=None))
+    showrunner_hub.hook.showrunner_startup(app=testing.hub_app(showrunner_hub))
     assert members["clock"](body)[0] == 200
 
 
@@ -170,11 +168,60 @@ def test_the_hosted_plugin_answers_to_the_member_s_name(showrunner_hub):
     assert hosted.__name__ == "clock"
 
 
-def test_a_member_of_another_family_is_not_hosted_in_the_hub(showrunner_hub):
+def test_a_member_of_another_family_than_the_hub_says_it_is_is_not_hosted(showrunner_hub):
+    """The hub's family comes from the hub's own identity, not from kin."""
+    made = []
+    hosted, api = hosted_clock(showrunner_hub, made, family="instruments")
+    showrunner_hub.hook.showrunner_startup(app=testing.hub_app(showrunner_hub))
+
+    assert made == []
+    assert "two families meet across a protocol" in hosted.why
+    with TestClient(api) as client:
+        said = client.get("/clock/family/state")
+    assert said.status_code == 503 and "the hub in 'show-control'" in said.json()["error"]
+
+
+def test_a_hub_that_predates_hosting_is_told_so_not_silently_ignored():
+    """A hub whose hooks lack showrunner_hub_identity and _family_members hosts nothing.
+
+    Mutation: the adapter no longer checks what the hub declares -- red here (it starts).
+    """
+    with testing.showrunner_hub(hosts_members=False) as old:
+        made = []
+        hosted, _ = hosted_clock(old, made)
+        old.hook.showrunner_startup(app=testing.hub_app(old))
+
+    assert made == []
+    assert "does not declare showrunner_hub_identity, showrunner_family_members" in hosted.why
+
+
+def test_a_member_that_cannot_start_is_not_ready_and_is_tried_again(showrunner_hub,
+                                                                     monkeypatch):
+    """Its device appears on the third try: the hub never stopped, and then it is ready."""
     from kin import showrunner as hosting
 
-    with pytest.raises(ValueError, match="two families meet across a protocol"):
-        hosting.plugin(lambda settings: Clock(), name="carlos", family="instruments")
+    monkeypatch.setattr(hosting, "RETRY_FIRST", 0.05)
+    tries = []
+
+    class Late(Clock):
+        def start(self):
+            tries.append(1)
+            if len(tries) < 3:
+                raise OSError("no MIDI device called 'Launchkey'")
+
+    hosted, _ = hosted_clock(showrunner_hub, clock=Late)
+    showrunner_hub.hook.showrunner_startup(app=testing.hub_app(showrunner_hub))
+    [members] = [m for m in showrunner_hub.hook.showrunner_family_members() if m]
+    body = {"cue": {"number": "1"}, "action": {"clock": "lap"}}
+
+    status, answer = members["clock"](body)
+    assert status == 503 and "is not ready: OSError: no MIDI device" in answer["error"]
+    deadline = time.monotonic() + 5
+    while hosted.member is None and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert len(tries) == 3
+    assert members["clock"](body)[0] == 200
+    showrunner_hub.hook.showrunner_shutdown(app=None)
 
 
 def test_a_probe_may_ask_the_read_routes_with_head(clock):

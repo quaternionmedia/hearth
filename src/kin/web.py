@@ -84,9 +84,15 @@ async def frames(member: Member, gone: Callable[[], Awaitable[bool]],
         unfollow()
 
 
-def router(member: Member | Callable[[], Member | None]) -> APIRouter:
-    """``POST /family/cue``, ``GET /family/state``, ``/family/events`` and ``/family/identity``."""
+def router(member: Member | Callable[[], Member | None],
+           why: Callable[[], str] | None = None) -> APIRouter:
+    """``POST /family/cue``, ``GET /family/state``, ``/family/events`` and ``/family/identity``.
+
+    Until there is a member, every route answers 503 with ``why()``, when given,
+    as its error: a host says what the member is waiting for.
+    """
     the = (lambda: member) if isinstance(member, Member) else member
+    waiting = why or (lambda: "")
     routes = APIRouter(prefix="/family", tags=["family"])
 
     def started() -> Member:
@@ -105,7 +111,7 @@ def router(member: Member | Callable[[], Member | None]) -> APIRouter:
         except Refused as refusal:
             return JSONResponse({"ok": False, "error": str(refusal)}, status_code=422)
         except _NotStarted:
-            return _not_started()
+            return _not_started(waiting())
         # Off the event loop: understanding an action may read a file.
         status, answer = await run_in_threadpool(this.receive, body)
         return JSONResponse(answer, status_code=status)
@@ -115,21 +121,21 @@ def router(member: Member | Callable[[], Member | None]) -> APIRouter:
         try:
             return JSONResponse(started().snapshot(), headers=OPEN)
         except _NotStarted:
-            return _not_started()
+            return _not_started(waiting())
 
     @routes.api_route("/identity", methods=["GET", "HEAD"])
     async def identity():
         try:
             return JSONResponse(started().identity(), headers=OPEN)
         except _NotStarted:
-            return _not_started()
+            return _not_started(waiting())
 
     @routes.get("/events")
     async def events(request: Request):
         try:
             this = started()
         except _NotStarted:
-            return _not_started()
+            return _not_started(waiting())
         return StreamingResponse(frames(this, request.is_disconnected),
                                  media_type="text/event-stream",
                                  headers={**OPEN, "Cache-Control": "no-cache",
@@ -142,9 +148,9 @@ class _NotStarted(Exception):
     pass
 
 
-def _not_started() -> JSONResponse:
-    return JSONResponse({"ok": False, "error": "the member has not started"}, status_code=503,
-                        headers=OPEN)
+def _not_started(why: str = "") -> JSONResponse:
+    return JSONResponse({"ok": False, "error": why or "the member has not started"},
+                        status_code=503, headers=OPEN)
 
 
 def app(member: Member, *, routers: Iterable[APIRouter] = (), title: str | None = None) -> FastAPI:
