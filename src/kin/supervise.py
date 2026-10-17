@@ -54,7 +54,7 @@ class Spec:
     command: list[str]
     url: str
     cwd: str | None = None
-    env: dict[str, str] | None = None
+    env: dict[str, str | None] | None = None  # a None value unsets the variable
     ready: str = "/family/identity"
 
 
@@ -140,8 +140,9 @@ class Supervisor:
                else subprocess.DEVNULL)
         flags = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} \
             if sys.platform == "win32" else {"start_new_session": True}
-        return subprocess.Popen(spec.command, cwd=spec.cwd,
-                                env={**os.environ, **(spec.env or {})},
+        env = {key: value for key, value in {**os.environ, **(spec.env or {})}.items()
+               if value is not None}
+        return subprocess.Popen(spec.command, cwd=spec.cwd, env=env,
                                 stdout=out, stderr=subprocess.STDOUT, **flags)
 
     def _identity(self, client: httpx.Client, spec: Spec) -> dict | None:
