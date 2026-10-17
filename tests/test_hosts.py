@@ -228,3 +228,56 @@ def test_a_probe_may_ask_the_read_routes_with_head(clock):
     with TestClient(web.app(clock)) as client:
         assert [client.head(f"/family/{route}").status_code
                 for route in ("state", "identity")] == [200, 200]
+
+
+# --- the hub's side ------------------------------------------------------------
+
+
+def stand_in_hub(lenient: bool = False) -> FastAPI:
+    """The hub's routes as the contract states them; ``lenient`` answers any name."""
+    import asyncio
+
+    from fastapi import HTTPException
+    from fastapi.responses import StreamingResponse
+
+    api = FastAPI()
+
+    @api.get("/family/identity")
+    def identity():
+        return {"hub": "stand-in", "family": "show-control", "contract": "family/1",
+                "instance": "i1"}
+
+    @api.get("/family/")
+    def audit():
+        return {"members": {"leo": {"via": "pull"}}, "last": []}
+
+    @api.get("/family/members/{name}")
+    def member(name: str):
+        if name != "leo" and not lenient:
+            raise HTTPException(404)
+        return {"cue": None, "action": None}
+
+    @api.get("/family/members/{name}/events")
+    async def stream(name: str):
+        async def frames():
+            yield 'event: action\ndata: {"cue": null, "action": null}\n\n'
+            await asyncio.sleep(0.2)
+
+        return StreamingResponse(frames(), media_type="text/event-stream")
+
+    return api
+
+
+def test_a_hub_is_checked_by_its_own_routes(serve):
+    report = conformance.check_hub(serve(stand_in_hub()), pull="leo")
+
+    assert report.status == 0, "\n".join(map(str, report.findings))
+    assert "first action event ms" in report.timings
+
+
+def test_a_hub_that_answers_for_any_name_does_not_conform(serve):
+    report = conformance.check_hub(serve(stand_in_hub(lenient=True)))
+
+    assert report.status == 1
+    assert [f.what for f in report.findings if not f.ok] == \
+        ["a name the hub's table does not hold has no members route"]

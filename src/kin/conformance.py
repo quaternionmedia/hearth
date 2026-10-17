@@ -9,6 +9,9 @@ from the POST to the member's answer, and from the POST to the event that
 carries the cue to a follower. That second figure is what a person watching a
 page waits for.
 
+``kin check --hub URL [--pull NAME]`` asks a hub's side instead: what the hub
+is, its audit, and a pull member's routes and stream.
+
 Exit 0: every finding passed. 1: one failed. 3: nothing answered, so the check
 could not say.
 """
@@ -61,8 +64,9 @@ class Report:
         return 0 if all(f.ok for f in self.findings) else 1
 
 
-def events(client: httpx.Client, url: str, timeout: float) -> Iterator[dict]:
-    """Each ``state`` event's data from ``url``'s stream, as it arrives."""
+def events(client: httpx.Client, url: str, timeout: float,
+           event: str = "state") -> Iterator[dict]:
+    """Each ``event`` event's data from ``url``'s stream, as it arrives."""
     with client.stream("GET", url, timeout=httpx.Timeout(timeout, read=timeout)) as response:
         if response.status_code != 200 or "text/event-stream" not in \
                 response.headers.get("content-type", ""):
@@ -74,7 +78,7 @@ def events(client: httpx.Client, url: str, timeout: float) -> Iterator[dict]:
             elif line.startswith("data:"):
                 data.append(line[5:].strip())
             elif line == "" and data:
-                if name in (None, "state"):
+                if name in (None, event):
                     yield json.loads("\n".join(data))
                 name, data = None, []
 
@@ -193,6 +197,65 @@ def _check_events(client: httpx.Client, base: str, report: Report, name: object,
                    "" if seen is not None else f"no event named cue {number} within {timeout:g}s")
 
 
+def check_hub(url: str, pull: str | None = None, timeout: float = 5.0) -> Report:
+    """The hub's side of the contract: what it is, its audit, and a pull member's routes.
+
+    ``pull`` names a pull member the hub's table holds; without one, only the
+    routes every hub answers are asked.
+    """
+    base = url.rstrip("/")
+    report = Report(base)
+    with httpx.Client(timeout=timeout) as client:
+        try:
+            said = client.get(f"{base}/family/identity")
+        except httpx.HTTPError as exc:
+            report.answered = False
+            report.add(False, "GET /family/identity answers", f"{type(exc).__name__}: {exc}")
+            return report
+        identity = _json(said)
+        identity = identity if isinstance(identity, dict) else {}
+        report.add(said.status_code == 200 and identity.get("contract") == CONTRACT,
+                   f"the hub keeps contract {CONTRACT}", f"{said.status_code} {identity}")
+        for key in ("hub", "family", "instance"):
+            report.add(isinstance(identity.get(key), str) and identity[key],
+                       f"the hub's identity names its {key}", identity.get(key))
+
+        said = client.get(f"{base}/family/")
+        audit = _json(said)
+        report.add(said.status_code == 200 and isinstance(audit, dict)
+                   and isinstance(audit.get("members"), dict)
+                   and isinstance(audit.get("last"), list),
+                   "GET /family/ lists the members and the recent deliveries",
+                   f"{said.status_code} {str(audit)[:120]}")
+
+        said = client.get(f"{base}/family/members/kin-conformance-nobody")
+        report.add(said.status_code == 404,
+                   "a name the hub's table does not hold has no members route",
+                   said.status_code)
+
+        if pull is not None:
+            said = client.get(f"{base}/family/members/{pull}")
+            waiting = _json(said)
+            report.add(said.status_code == 200 and isinstance(waiting, dict)
+                       and {"cue", "action"} <= set(waiting),
+                       f"GET /family/members/{pull} is {{cue, action}}",
+                       f"{said.status_code} {waiting}")
+            started = time.perf_counter()
+            stream = events(client, f"{base}/family/members/{pull}/events", timeout, "action")
+            try:
+                first = next(stream)
+                report.timings["first action event ms"] = round(
+                    (time.perf_counter() - started) * 1000, 1)
+                report.add(isinstance(first, dict) and {"cue", "action"} <= set(first),
+                           f"GET /family/members/{pull}/events streams the action at once", first)
+            except (httpx.HTTPError, ValueError, StopIteration) as exc:
+                report.add(False, f"GET /family/members/{pull}/events streams the action at once",
+                           repr(exc))
+            finally:
+                stream.close()
+    return report
+
+
 def _json(response: object) -> object:
     try:
         return response.json()  # type: ignore[union-attr]
@@ -207,9 +270,14 @@ def main(argv: list[str] | None = None) -> int:
     asked.add_argument("url")
     asked.add_argument("--action", type=json.loads, default=None,
                        help='one real action to send and time, as JSON: \'{"clock": "lap"}\'')
+    asked.add_argument("--hub", action="store_true",
+                       help="URL is a hub: check the hub's side of the contract")
+    asked.add_argument("--pull", default=None,
+                       help="with --hub, a pull member in the hub's table to check the routes of")
     asked.add_argument("--timeout", type=float, default=5.0)
     args = parser.parse_args(argv)
-    report = check(args.url, args.action, args.timeout)
+    report = (check_hub(args.url, args.pull, args.timeout) if args.hub
+              else check(args.url, args.action, args.timeout))
     print(f"kin check {report.url}")
     for finding in report.findings:
         print(f"  {finding}")
