@@ -118,7 +118,7 @@ def test_an_open_stream_does_not_hold_the_page_s_shutdown(clock):
 # --- inside ShowRunner ---------------------------------------------------------
 
 
-def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock):
+def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock, log=None):
     from kin import showrunner as hosting
 
     def make(settings):
@@ -126,7 +126,8 @@ def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock):
             made.append(settings)
         return clock()
 
-    hosted = hosting.plugin(make, name="clock", family=family, log=lambda text: None)
+    hosted = hosting.plugin(make, name="clock", family=family,
+                            log=log or (lambda text: None))
     showrunner_hub.register(hosted)
     api = FastAPI()
     for routes in showrunner_hub.hook.showrunner_get_routes():
@@ -222,6 +223,41 @@ def test_a_member_that_cannot_start_is_not_ready_and_is_tried_again(showrunner_h
     assert len(tries) == 3
     assert members["clock"](body)[0] == 200
     showrunner_hub.hook.showrunner_shutdown(app=None)
+
+
+def test_a_member_not_ready_for_one_reason_says_so_once_and_then_that_it_is_ready(
+        showrunner_hub, monkeypatch):
+    """A device missing all evening is one line in the hub's log, not one per try.
+
+    Mutation: the reason said at every try -- red here (four lines).
+    """
+    from kin import showrunner as hosting
+
+    monkeypatch.setattr(hosting, "RETRY_FIRST", 0.02)
+    monkeypatch.setattr(hosting, "RETRY_CAP", 0.02)
+    tries, said = [], []
+
+    class Late(Clock):
+        def start(self):
+            tries.append(1)
+            if len(tries) < 3:
+                raise OSError("no MIDI device called 'Launchkey'")
+            if len(tries) < 5:
+                raise OSError("the Launchkey is busy")
+
+    hosted, _ = hosted_clock(showrunner_hub, clock=Late, log=said.append)
+    showrunner_hub.hook.showrunner_startup(app=testing.hub_app(showrunner_hub))
+    deadline = time.monotonic() + 5
+    while hosted.member is None and time.monotonic() < deadline:
+        time.sleep(0.02)
+    showrunner_hub.hook.showrunner_shutdown(app=None)
+
+    assert said == [
+        "clock is not ready: OSError: no MIDI device called 'Launchkey'; "
+        "trying again, at most every 0.02s",
+        "clock is not ready: OSError: the Launchkey is busy; trying again, at most every 0.02s",
+        "clock is ready, at try 5",
+    ]
 
 
 def test_a_probe_may_ask_the_read_routes_with_head(clock):

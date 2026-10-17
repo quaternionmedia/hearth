@@ -113,14 +113,17 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
                     member.start()
                 except Exception as exc:  # noqa: BLE001 -- not ready, never the hub's failure
                     wait = min(RETRY_FIRST * 2 ** (self.tries - 1), RETRY_CAP)
-                    self.why = (f"{name} is not ready: {type(exc).__name__}: {exc} "
-                                f"(try {self.tries}; next in {wait:g}s)")
-                    say(self.why)
+                    reason = f"{name} is not ready: {type(exc).__name__}: {exc}"
+                    if not self.why.startswith(reason):  # said once, until the reason changes
+                        say(f"{reason}; trying again, at most every {RETRY_CAP:g}s")
+                    self.why = f"{reason} (try {self.tries}; next in {wait:g}s)"
                     self._retry = threading.Timer(wait, self._try)
                     self._retry.daemon = True
                     self._retry.start()
                     return
                 self.member = member
+                if self.tries > 1:
+                    say(f"{name} is ready, at try {self.tries}")
                 self.why = ""
 
         @showrunner.hookimpl
