@@ -1,7 +1,7 @@
 """The contract's routes on aiohttp, for a member whose page is served by aiohttp.
 
 ShowStopper serves its page with textual-serve, which is aiohttp; these are the
-same four routes ``kin.web.router`` serves on FastAPI, answering the same way,
+same four routes ``hearth.web.router`` serves on FastAPI, answering the same way,
 from the same event stream.
 
 ``attach(app, member)`` is the whole of it: the routes, the member's

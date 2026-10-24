@@ -8,16 +8,16 @@ import time
 
 import httpx
 
-from kin import testing
-from kin.supervise import Spec, Supervisor, companion_backoff
+from hearth import testing
+from hearth.supervise import Spec, Supervisor, companion_backoff
 
 MEMBER = textwrap.dedent('''
     import os, sys
     import uvicorn
-    import kin
-    from kin import web
+    import hearth
+    from hearth import web
 
-    class Fragile(kin.Member):
+    class Fragile(hearth.Member):
         name, family, verbs = "fragile", "show-control", ("clock",)
         def understand(self, action):
             return lambda: os._exit(9)  # a crash on any cue

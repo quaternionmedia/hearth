@@ -3,13 +3,13 @@
 Every helper is a context manager that yields an address and stops what it
 started on the way out::
 
-    with serving(kin.web.app(member)) as url:
-        assert kin.conformance.check(url).status == 0
+    with serving(hearth.web.app(member)) as url:
+        assert hearth.conformance.check(url).status == 0
 
     with serving_aiohttp(application) as url: ...
 
     with showrunner_hub() as hub:   # pluggy, ShowRunner's hook names, no ShowRunner
-        hub.register(kin.showrunner.plugin(...))
+        hub.register(hearth.showrunner.plugin(...))
 
 None of them is imported by a member's running code.
 """
@@ -90,10 +90,10 @@ def serving_aiohttp(application) -> Iterator[str]:
 
 @contextmanager
 def showrunner_hub(family: str = "show-control", hosts_members: bool = True):
-    """A pluggy manager with ShowRunner's hook marker and the hooks kin answers, no ShowRunner.
+    """A pluggy manager with ShowRunner's hook marker and the hooks hearth answers, no ShowRunner.
 
     It stands a module called ``showrunner`` in ``sys.modules`` for the
-    duration, so ``kin.showrunner.plugin`` builds against it. The hub says it is
+    duration, so ``hearth.showrunner.plugin`` builds against it. The hub says it is
     of ``family``; with ``hosts_members=False`` it is a hub that predates hosting
     and declares neither ``showrunner_hub_identity`` nor
     ``showrunner_family_members``. Start it with ``hub_app(hub)``.

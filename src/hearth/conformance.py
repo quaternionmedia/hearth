@@ -1,4 +1,4 @@
-"""Does what answers at a URL keep the family contract? ``kin check URL``.
+"""Does what answers at a URL keep the family contract? ``hearth check URL``.
 
 It asks the routes only, so it judges a member in any language and under any
 host: alone on its own port, or inside a hub at ``<hub>/<name>``. Each finding
@@ -9,7 +9,7 @@ from the POST to the member's answer, and from the POST to the event that
 carries the cue to a follower. That second figure is what a person watching a
 page waits for.
 
-``kin check --hub URL [--pull NAME]`` asks a hub's side instead: what the hub
+``hearth check --hub URL [--pull NAME]`` asks a hub's side instead: what the hub
 is, its audit, and a pull member's routes and stream.
 
 Exit 0: every finding passed. 1: one failed. 3: nothing answered, so the check
@@ -31,7 +31,7 @@ import httpx
 from .member import CONTRACT
 
 CANNOT_SAY = 3
-NOT_UNDERSTOOD = {"kin-conformance-unknown-verb": True}
+NOT_UNDERSTOOD = {"hearth-conformance-unknown-verb": True}
 
 
 @dataclass
@@ -121,7 +121,7 @@ def check(url: str, action: dict | None = None, timeout: float = 5.0) -> Report:
                    "a body that is not JSON is refused 422 with its error",
                    f"{said.status_code} {answer}")
 
-        probe = {"cue": {"number": "kin", "name": "conformance", "fired_at": None},
+        probe = {"cue": {"number": "hearth", "name": "conformance", "fired_at": None},
                  "action": NOT_UNDERSTOOD}
         said = client.post(f"{base}/family/cue", json=probe)
         answer = _json(said)
@@ -155,7 +155,7 @@ def _check_events(client: httpx.Client, base: str, report: Report, name: object,
         stream.close()
         return
 
-    number = f"kin-{int(time.time() * 1000)}"
+    number = f"hearth-{int(time.time() * 1000)}"
     sent: dict[str, object] = {}
     # Made before the clock starts: making a client loads its TLS setup, which
     # on Windows is a quarter of a second the member never spent.
@@ -228,7 +228,7 @@ def check_hub(url: str, pull: str | None = None, timeout: float = 5.0) -> Report
                    "GET /family/ lists the members and the recent deliveries",
                    f"{said.status_code} {str(audit)[:120]}")
 
-        said = client.get(f"{base}/family/members/kin-conformance-nobody")
+        said = client.get(f"{base}/family/members/hearth-conformance-nobody")
         report.add(said.status_code == 404,
                    "a name the hub's table does not hold has no members route",
                    said.status_code)
@@ -264,7 +264,7 @@ def _json(response: object) -> object:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="kin", description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(prog="hearth", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     asked = sub.add_parser("check", help="check the member answering at URL against the contract")
     asked.add_argument("url")
@@ -278,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     report = (check_hub(args.url, args.pull, args.timeout) if args.hub
               else check(args.url, args.action, args.timeout))
-    print(f"kin check {report.url}")
+    print(f"hearth check {report.url}")
     for finding in report.findings:
         print(f"  {finding}")
     for what, ms in report.timings.items():

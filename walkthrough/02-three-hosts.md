@@ -5,22 +5,22 @@
 > nothing outside this machine.
 
 The member from the previous page, served three ways, and held to the
-contract by the same check each time. `kin check` asks the routes and nothing
+contract by the same check each time. `hearth check` asks the routes and nothing
 else, so it judges a member in any language under any host, and with an
 action it sends one real cue and waits for the event that carries it to a
 follower.
 
 ```python
->>> import kin
->>> from kin import conformance, testing
->>> class Clock(kin.Member):
+>>> import hearth
+>>> from hearth import conformance, testing
+>>> class Clock(hearth.Member):
 ...     name, family, verbs = "clock", "show-control", ("clock",)
 ...     def __init__(self):
 ...         super().__init__()
 ...         self.laps = 0
 ...     def understand(self, action):
 ...         if action["clock"] != "lap":
-...             raise kin.Refused(f"the clock cannot {kin.shown(action['clock'])}")
+...             raise hearth.Refused(f"the clock cannot {hearth.shown(action['clock'])}")
 ...         return self._lap
 ...     def _lap(self): self.laps += 1
 ...     def state(self): return {"laps": self.laps}
@@ -35,7 +35,7 @@ Any ASGI server, with the member's `start` and `stop` on the server's own
 lifespan:
 
 ```python
->>> from kin import web
+>>> from hearth import web
 >>> alone = Clock()
 >>> with testing.serving(web.app(alone)) as url:
 ...     report = conformance.check(url, action={"clock": "lap"})
@@ -51,7 +51,7 @@ the routes, the lifecycle, and its streams closed at shutdown, from one call:
 
 ```python
 >>> from aiohttp import web as aioweb
->>> from kin import aio
+>>> from hearth import aio
 >>> beside = Clock()
 >>> page = aioweb.Application()
 >>> aio.attach(page, beside)
@@ -64,7 +64,7 @@ the routes, the lifecycle, and its streams closed at shutdown, from one call:
 
 ## Inside the hub
 
-ShowRunner is a pluggy host. `kin.showrunner.plugin` hosts the member in the
+ShowRunner is a pluggy host. `hearth.showrunner.plugin` hosts the member in the
 hub's process: its routes under `<hub>/<name>`, and a hook that hands the hub
 the member's `receive`, so a cue reaches it by a call rather than a request.
 `testing.showrunner_hub()` stands in for ShowRunner's hook marker and hooks,
@@ -74,7 +74,7 @@ so this page does not need ShowRunner installed:
 >>> from fastapi import FastAPI
 >>> import types
 >>> with testing.showrunner_hub() as hub:
-...     from kin import showrunner as hosting
+...     from hearth import showrunner as hosting
 ...     _ = hub.register(hosting.plugin(lambda settings: Clock(), name="clock",
 ...                                 family="show-control"))
 ...     api = FastAPI()

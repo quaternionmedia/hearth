@@ -2,10 +2,10 @@
 
 The hub here is ShowRunner's own: its ShowFamily delivery engine
 (``showrunner.plugins.family.Family``) and, for startup, its ``ShowRunner`` app.
-So this runs in ShowRunner's environment with kin importable::
+So this runs in ShowRunner's environment with hearth importable::
 
     cd <a ShowRunner checkout carrying the family stack>
-    PYTHONPATH=<kin>/src uv run --no-sync python <kin>/bench/hosting.py
+    PYTHONPATH=<hearth>/src uv run --no-sync python <hearth>/bench/hosting.py
 
 Everything binds 127.0.0.1 on ports the OS picks, and every process it starts,
 it stops. ``BENCH_N`` sets the cues per path (default 300).
@@ -32,15 +32,15 @@ import httpx
 from fastapi import APIRouter, FastAPI
 from showrunner.plugins import family
 
-import kin
-from kin import showrunner as hosting
-from kin import testing, web
+import hearth
+from hearth import showrunner as hosting
+from hearth import testing, web
 
 N = int(os.environ.get("BENCH_N", "300"))
 LAP = {"clock": "lap"}
 
 
-class Clock(kin.Member):
+class Clock(hearth.Member):
     """A member that notes when each cue reached it, by the bench's own clock."""
 
     name, family, verbs = "clock", "show-control", ("clock",)
@@ -282,11 +282,11 @@ def blocking_page() -> None:
 
 CRASHER = textwrap.dedent('''
     import os, sys
-    import kin
-    from kin import web
+    import hearth
+    from hearth import web
     import uvicorn
 
-    class Crash(kin.Member):
+    class Crash(hearth.Member):
         name, family, verbs = "crash", "show-control", ("clock",)
         def understand(self, action):
             return lambda: os._exit(7)
@@ -298,10 +298,10 @@ CRASHER = textwrap.dedent('''
 
 HOSTED_CRASH = textwrap.dedent('''
     import os, time
-    import kin
+    import hearth
     from showrunner.plugins import family
 
-    class Crash(kin.Member):
+    class Crash(hearth.Member):
         name, family, verbs = "crash", "show-control", ("clock",)
         def understand(self, action):
             return lambda: os._exit(7)
@@ -356,7 +356,7 @@ def crashing_member() -> None:
 
 
 if __name__ == "__main__":
-    print(f"python {sys.version.split()[0]} on {sys.platform}; kin {kin.CONTRACT}")
+    print(f"python {sys.version.split()[0]} on {sys.platform}; hearth {hearth.CONTRACT}")
     latency()
     fails_to_start()
     slow_member()

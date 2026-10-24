@@ -8,7 +8,7 @@ ShowRunner as the hub.
 **Extend the hub in-process; act on a cue across the contract.** A part that
 adds to the hub's data and pages -- a layer type, a preview chip under a cue,
 a cue-list importer -- is a ShowRunner plugin on ShowRunner's own hooks, and
-kin has nothing to say about it. A part that acts on a cue is a member, and
+hearth has nothing to say about it. A part that acts on a cue is a member, and
 this page is about where it runs. A member may ship both: ShowStopper's clock
 is a member, and `showstopper_clock` is a small extension that gives it a
 layer and a chip in the hub's script page. The two meet in the hub's data and
@@ -16,11 +16,11 @@ the cue's family block, never in each other's code.
 
 | Host | Call | Serves the routes at | Lifecycle |
 |---|---|---|---|
-| Alone | `kin.web.app(member, routers=...)` | the server's root | `start`/`stop` on the ASGI lifespan |
-| Beside an aiohttp page | `kin.aio.attach(app, member)` | the page's root | `start`/`stop` on the application's startup and cleanup; open streams end at shutdown |
-| Inside ShowRunner | `kin.showrunner.plugin(make, name=..., family=...)` | `<hub>/<name>` | made at the hub's startup from `[plugins.<name>]`, stopped at its shutdown |
+| Alone | `hearth.web.app(member, routers=...)` | the server's root | `start`/`stop` on the ASGI lifespan |
+| Beside an aiohttp page | `hearth.aio.attach(app, member)` | the page's root | `start`/`stop` on the application's startup and cleanup; open streams end at shutdown |
+| Inside ShowRunner | `hearth.showrunner.plugin(make, name=..., family=...)` | `<hub>/<name>` | made at the hub's startup from `[plugins.<name>]`, stopped at its shutdown |
 
-`kin.web.router(member)` is the four routes alone, for a FastAPI app that
+`hearth.web.router(member)` is the four routes alone, for a FastAPI app that
 already exists; `member` may be a callable returning the member, for an app
 that makes it after the routes are mounted. Until it does, they answer 503.
 
@@ -87,7 +87,7 @@ disabled` matches.
 - The member's own settings table, and nothing else of the hub's
   configuration.
 
-kin's plugin does the first and the last, and catches a failure of its own
+hearth's plugin does the first and the last, and catches a failure of its own
 member's start. ShowFamily records each delivery's failure against its member.
 A failure in another plugin's startup, and importing only what is enabled,
 are the hub's.
@@ -100,13 +100,13 @@ is served alone.
 
 ## Beside the hub, kept running
 
-`kin.supervise` starts members served alone, knows each is up when its
+`hearth.supervise` starts members served alone, knows each is up when its
 `/family/identity` answers, and starts it again when it stops: 1 s after each
 of the first three stops, then doubling to 60 s, never giving up, as Bitfocus
 Companion restarts its modules.
 
 ```python
-from kin.supervise import Spec, Supervisor
+from hearth.supervise import Spec, Supervisor
 
 supervisor = Supervisor([Spec("carlos", ["uv", "run", "carlos", "serve", "--port", "18720",
                                          "--state", "state/carlos"],
@@ -121,12 +121,12 @@ instance.
 
 ## Following from a page
 
-`src/kin/static/follow.js` is a classic script. Vendor it beside the page and
+`src/hearth/static/follow.js` is a classic script. Vendor it beside the page and
 load it with a `<script>` tag, or import it for its effect from a bundle; both
-call `kin.follow`:
+call `hearth.follow`:
 
 ```js
-const stop = kin.follow({events: '/family/events', state: '/family/state'},
+const stop = hearth.follow({events: '/family/events', state: '/family/state'},
                         snapshot => draw(snapshot),
                         {onLink: link => badge(link)});  // 'stream' | 'polling' | 'down'
 ```
@@ -137,12 +137,12 @@ snapshot alone: a page that missed an event draws the same thing at the next.
 
 ## Testing a member
 
-`kin.testing` serves a member over a real socket and stands in for
+`hearth.testing` serves a member over a real socket and stands in for
 ShowRunner, so a member's tests hold it to the contract without copies of
 either:
 
 ```python
-from kin import conformance, testing, web
+from hearth import conformance, testing, web
 
 def test_it_keeps_the_contract(member):
     with testing.serving(web.app(member)) as url:

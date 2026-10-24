@@ -20,7 +20,7 @@ ShowRunner's ``showrunner`` entry-point group, and the hub:
 border is what its members drive, and two families meet across a protocol,
 never an import: a member of another family is served alone and named in
 ``[plugins.family.members]`` by its URL. The hub says which family it is in;
-kin does not assume it.
+hearth does not assume it.
 
 **A member that cannot start is not ready, and the hub runs on.** Its routes
 answer 503 saying why, the hub audits cues to it as errors, and the start is
@@ -29,7 +29,7 @@ the hub stops -- a device plugged in late is picked up without a restart. A
 hub that cannot host the member at all (it predates the hooks, or it is of
 another family) is said so once, and the member is never started.
 
-ShowRunner is imported here and nowhere else in kin, and only when a hub loads
+ShowRunner is imported here and nowhere else in hearth, and only when a hub loads
 the plugin.
 """
 
@@ -61,8 +61,8 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
     """A ShowRunner plugin hosting the member ``make`` returns."""
     import showrunner
 
-    say = log or logging.getLogger("kin").warning
-    note = log or logging.getLogger("kin").info  # good news is not a warning
+    say = log or logging.getLogger("hearth").warning
+    note = log or logging.getLogger("hearth").info  # good news is not a warning
 
     class Hosted:
         """{name}, a member of {family}, hosted in the hub's process."""
@@ -76,7 +76,7 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
             self._lock = threading.Lock()
             self._stopped = False
 
-        # --- the hub, as kin finds it ---------------------------------------
+        # --- the hub, as hearth finds it ---------------------------------------
 
         @showrunner.hookimpl
         def showrunner_register(self):

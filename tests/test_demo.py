@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import kin
+import hearth
 
 DEMO = Path(__file__).resolve().parents[1] / "demo" / "proposal.py"
 
@@ -46,7 +46,7 @@ def test_the_metronome_is_not_ready_until_its_device_is_there(demo, tmp_path):
 
 def test_the_rack_is_of_another_family_than_the_hub(demo):
     assert demo.Rack.family == "instruments" != demo.Metronome.family
-    assert isinstance(demo.Rack(), kin.Member)
+    assert isinstance(demo.Rack(), hearth.Member)
 
 
 def test_a_run_begins_from_nothing_and_never_empties_a_directory_it_did_not_make(demo,

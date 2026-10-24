@@ -2,7 +2,7 @@
 
 ``router(member)`` is the four ``/family/*`` routes; it mounts on any FastAPI
 app, which is how one member is served alone (``app``) or inside a hub
-(``kin.showrunner``) with no change to the member. ``member`` may be a callable
+(``hearth.showrunner``) with no change to the member. ``member`` may be a callable
 returning the member, for a host that makes it after the routes are mounted;
 until it does, the routes answer 503.
 

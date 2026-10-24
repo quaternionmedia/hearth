@@ -1,4 +1,4 @@
-// kin: follow a member's state, or a hub's word for a member, from a page.
+// hearth: follow a member's state, or a hub's word for a member, from a page.
 //
 // The stream first: GET <events> is server-sent events, and every `state`
 // event is the snapshot, so a cue reaches the page as soon as it lands. While
@@ -8,9 +8,9 @@
 // which path brought one.
 //
 // A classic script, so a page with no bundler loads it with a <script> tag
-// and a bundled page imports it for its effect; both call kin.follow.
+// and a bundled page imports it for its effect; both call hearth.follow.
 //
-//   const stop = kin.follow({events: '/family/events', state: '/family/state'},
+//   const stop = hearth.follow({events: '/family/events', state: '/family/state'},
 //                           snapshot => draw(snapshot),
 //                           {onLink: link => badge(link)});  // 'stream' | 'polling' | 'down'
 //
@@ -85,5 +85,5 @@
         };
     }
 
-    root.kin = Object.assign(root.kin || {}, {follow: follow});
+    root.hearth = Object.assign(root.hearth || {}, {follow: follow});
 })(typeof globalThis !== 'undefined' ? globalThis : window);

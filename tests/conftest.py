@@ -1,4 +1,4 @@
-"""A clock member, and kin.testing's servers as fixtures: the contract is judged over sockets."""
+"""A clock member, and hearth.testing's servers as fixtures: the contract is judged over sockets."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from contextlib import ExitStack
 
 import pytest
 
-from kin import Member, Refused, shown, testing
+from hearth import Member, Refused, shown, testing
 
 ACTIONS = ("start", "stop", "reset", "lap")
 

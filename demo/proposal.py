@@ -9,7 +9,7 @@ What `plans/plugin-or-server.md` in the corpus proposes, on one machine:
   layer type, a Clock layer and a ⏱ chip under each cue that drives the clock
   in `/script`. It reads the hub's data and never talks to the clock.
 * **Members beside the hub**, each its own process, kept running by
-  `kin.supervise`: ShowStopper's clock, carlos, joe (pushed to) and leo (which
+  `hearth.supervise`: ShowStopper's clock, carlos, joe (pushed to) and leo (which
   follows the hub's stream). Crash one from the panel and watch it come back
   as a new instance.
 * **A member hosted in the hub**: a metronome whose MIDI device is missing at
@@ -21,10 +21,10 @@ What `plans/plugin-or-server.md` in the corpus proposes, on one machine:
 Run it in the environment of a ShowRunner checkout carrying the family stack::
 
     cd <dev>/ShowRunner
-    uv run --no-sync python <kin>/demo/proposal.py --dev <dev>
+    uv run --no-sync python <hearth>/demo/proposal.py --dev <dev>
 
 `<dev>` holds the member checkouts (ShowStopper, carlos, joe, leo) on their
-family branches; this checkout's kin and `<dev>/ShowStopper` are put on the
+family branches; this checkout's hearth and `<dev>/ShowStopper` are put on the
 path. Each run begins from nothing in a fresh `--work` directory. Open
 `http://127.0.0.1:18700/demo`; the panel says what to try. Ctrl+C stops
 everything it started.
@@ -46,15 +46,15 @@ import uvicorn
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
-# This checkout's kin, whatever the hub's environment holds.
+# This checkout's hearth, whatever the hub's environment holds.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import kin
-from kin import conformance
-from kin import showrunner as hosting
-from kin.supervise import Spec, Supervisor, _kill_tree
+import hearth
+from hearth import conformance
+from hearth import showrunner as hosting
+from hearth.supervise import Spec, Supervisor, _kill_tree
 
-MARK = ".kin-proposal"  # a --work directory this demo made, and may empty again
+MARK = ".hearth-proposal"  # a --work directory this demo made, and may empty again
 
 SCRIPT = """Title: Proposal night
 
@@ -96,7 +96,7 @@ CUES = [
 ]
 
 
-class Metronome(kin.Member):
+class Metronome(hearth.Member):
     """A member hosted in the hub, whose MIDI clock device may not be there yet."""
 
     name, family, verbs = "metronome", "show-control", ("beat",)
@@ -112,7 +112,7 @@ class Metronome(kin.Member):
     def understand(self, action):
         bpm = action["beat"]
         if not isinstance(bpm, int) or not 20 <= bpm <= 300:
-            raise kin.Refused(f"a beat is 20 to 300 bpm, not {kin.shown(bpm)}")
+            raise hearth.Refused(f"a beat is 20 to 300 bpm, not {hearth.shown(bpm)}")
 
         def change():
             self.bpm, self.beats = bpm, self.beats + 1
@@ -123,7 +123,7 @@ class Metronome(kin.Member):
         return {"bpm": self.bpm, "beats": self.beats}
 
 
-class Rack(kin.Member):
+class Rack(hearth.Member):
     """An instruments-family member, offered to a show-control hub: it must be refused."""
 
     name, family, verbs = "rack", "instruments", ("turn",)
@@ -150,7 +150,7 @@ def taken(ports: list[int]) -> list[int]:
 def fresh(work: Path | None) -> Path:
     """The run's state directory, empty: a new one, or one an earlier run made."""
     if work is None:
-        work = Path(tempfile.mkdtemp(prefix="kin-proposal-"))
+        work = Path(tempfile.mkdtemp(prefix="hearth-proposal-"))
     work = work.resolve()
     if work.exists() and any(work.iterdir()):
         if not (work / MARK).exists():
@@ -158,7 +158,7 @@ def fresh(work: Path | None) -> Path:
                              f"directory, or leave --work out")
         shutil.rmtree(work)
     work.mkdir(parents=True, exist_ok=True)
-    (work / MARK).write_text("made by kin/demo/proposal.py; emptied at each run\n",
+    (work / MARK).write_text("made by hearth/demo/proposal.py; emptied at each run\n",
                              encoding="utf-8")
     return work
 
@@ -431,7 +431,7 @@ def main() -> int:
                        "verdict": "conforms" if report.status == 0 else "does not conform",
                        "failed": "; ".join(f.what for f in report.findings if not f.ok)})
         for check in checks:
-            print(f"  kin check {check['what']}: {check['verdict']} {check['failed']}", flush=True)
+            print(f"  hearth check {check['what']}: {check['verdict']} {check['failed']}", flush=True)
         print(f"ready: open {base}/demo   (Ctrl+C stops everything)", flush=True)
         while serving.is_alive():
             time.sleep(0.5)

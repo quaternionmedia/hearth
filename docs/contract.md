@@ -1,8 +1,8 @@
 # The family contract, `family/1`
 
 What every member of the performing family answers, whatever language it is
-written in and whatever serves it. `kin check URL` asks these routes and
-nothing else, so it is the contract's test; `src/kin/member.py` is one
+written in and whatever serves it. `hearth check URL` asks these routes and
+nothing else, so it is the contract's test; `src/hearth/member.py` is one
 implementation of it, not the contract.
 
 ## A member's routes

@@ -1,5 +1,5 @@
 [project]
-name = "qm-kin"
+name = "qm-hearth"
 version = "0.1.0.dev0"
 description = "One contract for the performing family's members, served alone or inside a hub."
 readme = "README.md"
@@ -16,7 +16,7 @@ dependencies = [
 aiohttp = ["aiohttp>=3.9"]
 
 [project.scripts]
-kin = "kin.conformance:main"
+hearth = "hearth.conformance:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6", "pluggy>=1.5", "aiohttp>=3.9"]
@@ -26,8 +26,8 @@ requires = ["uv_build>=0.8,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-# Distributed as qm-kin, imported as kin.
-module-name = "kin"
+# Distributed as qm-hearth, imported as hearth.
+module-name = "hearth"
 
 [tool.pytest.ini_options]
 # The walkthrough's pages are run as doctests by the ordinary test command.

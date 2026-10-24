@@ -1,4 +1,4 @@
-"""One member, every host, the same contract: each judged by ``kin check`` over a socket."""
+"""One member, every host, the same contract: each judged by ``hearth check`` over a socket."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from conftest import Clock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from kin import conformance, testing, web
+from hearth import conformance, testing, web
 
 
 def test_alone_it_conforms_and_a_cue_reaches_a_follower(serve, clock):
@@ -76,7 +76,7 @@ def test_a_member_that_breaks_the_contract_does_not_conform(serve):
 def test_beside_an_aiohttp_page_it_conforms_the_same(aio_serve, clock):
     from aiohttp import web as aioweb
 
-    from kin import aio
+    from hearth import aio
 
     application = aioweb.Application()
     aio.attach(application, clock)
@@ -91,7 +91,7 @@ def test_an_open_stream_does_not_hold_the_page_s_shutdown(clock):
     """Mutation: attach no longer closes streams at shutdown -- red here (aiohttp waits)."""
     from aiohttp import web as aioweb
 
-    from kin import aio
+    from hearth import aio
 
     application = aioweb.Application()
     aio.attach(application, clock)
@@ -119,7 +119,7 @@ def test_an_open_stream_does_not_hold_the_page_s_shutdown(clock):
 
 
 def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock, log=None):
-    from kin import showrunner as hosting
+    from hearth import showrunner as hosting
 
     def make(settings):
         if made is not None:
@@ -170,7 +170,7 @@ def test_the_hosted_plugin_answers_to_the_member_s_name(showrunner_hub):
 
 
 def test_a_member_of_another_family_than_the_hub_says_it_is_is_not_hosted(showrunner_hub):
-    """The hub's family comes from the hub's own identity, not from kin."""
+    """The hub's family comes from the hub's own identity, not from hearth."""
     made = []
     hosted, api = hosted_clock(showrunner_hub, made, family="instruments")
     showrunner_hub.hook.showrunner_startup(app=testing.hub_app(showrunner_hub))
@@ -199,7 +199,7 @@ def test_a_hub_that_predates_hosting_is_told_so_not_silently_ignored():
 def test_a_member_that_cannot_start_is_not_ready_and_is_tried_again(showrunner_hub,
                                                                      monkeypatch):
     """Its device appears on the third try: the hub never stopped, and then it is ready."""
-    from kin import showrunner as hosting
+    from hearth import showrunner as hosting
 
     monkeypatch.setattr(hosting, "RETRY_FIRST", 0.05)
     tries = []
@@ -231,7 +231,7 @@ def test_a_member_not_ready_for_one_reason_says_so_once_and_then_that_it_is_read
 
     Mutation: the reason said at every try -- red here (four lines).
     """
-    from kin import showrunner as hosting
+    from hearth import showrunner as hosting
 
     monkeypatch.setattr(hosting, "RETRY_FIRST", 0.02)
     monkeypatch.setattr(hosting, "RETRY_CAP", 0.02)

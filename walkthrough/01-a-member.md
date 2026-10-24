@@ -5,12 +5,12 @@
 
 A member of the performing family says two things: what an action changes,
 and what its state is. Everything else a member does is the same for every
-member, and kin does it once. This page builds the smallest member worth
-having, a show clock, and shows what kin does with it.
+member, and hearth does it once. This page builds the smallest member worth
+having, a show clock, and shows what hearth does with it.
 
 ```python
->>> import kin
->>> class Clock(kin.Member):
+>>> import hearth
+>>> class Clock(hearth.Member):
 ...     name, family, verbs = "clock", "show-control", ("clock",)
 ...
 ...     def __init__(self):
@@ -20,7 +20,7 @@ having, a show clock, and shows what kin does with it.
 ...     def understand(self, action):
 ...         verb = action["clock"]
 ...         if verb not in ("start", "stop", "lap"):
-...             raise kin.Refused(f"the clock cannot {kin.shown(verb)}")
+...             raise hearth.Refused(f"the clock cannot {hearth.shown(verb)}")
 ...         return {"start": self._start, "stop": self._stop, "lap": self._lap}[verb]
 ...
 ...     def _start(self): self.running = True
@@ -33,7 +33,7 @@ having, a show clock, and shows what kin does with it.
 
 ```
 
-`understand` returns the change unmade, or refuses. kin makes the change only
+`understand` returns the change unmade, or refuses. hearth makes the change only
 once nothing is left to refuse, so a cue is either acted on whole or not at
 all.
 
@@ -71,7 +71,7 @@ Not the state, and not the record of the last cue:
 
 ```
 
-The first refusal is the clock's own words; the other two are kin's, which
+The first refusal is the clock's own words; the other two are hearth's, which
 every member answers the same way.
 
 ## Followers
