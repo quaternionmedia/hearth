@@ -389,7 +389,7 @@ def router(coordinator: Callable[[], Coordinator | None], hub: Callable[[], dict
 
     @routes.get("/identity")
     async def hub_identity(response: Response):
-        """What this coordinator is: its family, the contract it keeps, and this running instance."""
+        """What this coordinator is: its family, its contract, and this running instance."""
         response.headers.update(OPEN)
         return hub()
 

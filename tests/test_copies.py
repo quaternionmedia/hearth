@@ -1,4 +1,4 @@
-"""An exemplar's copy of the coordinator template: made by ``hearth fork``, judged by ``hearth check --copy``.
+"""An exemplar's copy of the template: made by ``hearth fork``, judged by ``hearth check --copy``.
 
 Each test has a hearth of its own, a git repository holding a template with
 the template's ``Copied from:`` line, so its history is the test's to write.

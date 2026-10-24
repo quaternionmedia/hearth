@@ -37,3 +37,11 @@ pythonpath = ["tests", "template", "demo/plugins"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+# As strict as ShowRunner's, so the template passes in the exemplar that copies it.
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# The panel's page is inline HTML and script.
+"demo/proposal.py" = ["E501"]

@@ -1,4 +1,4 @@
-"""Is an exemplar's coordinator still hearth's template? ``hearth fork`` and ``hearth check --copy``.
+"""Is an exemplar's coordinator hearth's template? ``hearth fork`` and ``hearth check --copy``.
 
 An exemplar copies ``template/coordinator.py`` whole. The copy's
 ``Copied from:`` line names the hearth revision it was taken at, and every
@@ -93,7 +93,7 @@ def check(path: str | Path, root: Path | None = None) -> Copy:
 
 
 def fork(path: str | Path, root: Path | None = None) -> Copy:
-    """Write the template at hearth's ``HEAD`` to ``path``, unless that would lose an owner's change."""
+    """Write the template at hearth's ``HEAD`` to ``path``, unless that loses an owner's change."""
     path = Path(path)
     root = root or checkout()
     if root is None:

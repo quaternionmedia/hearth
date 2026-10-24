@@ -33,9 +33,9 @@ installed plugin. Its `show.toml` sets them up as any show's would:
 `[plugins.family]` names the members, `[plugins.metronome]` the metronome's
 device, and `[plugins] disabled` turns off ShowStopper's hosted clock, since
 the clock runs beside the hub. The show is made through the hub's own routes,
-and the panel reads the running parts over HTTP. Beside its checks of each member and
-of the hub, the panel says whether the hub's coordinator is still hearth's
-template (`hearth check --copy`). `tests/test_demo.py` fails if the
+and the panel reads the running parts over HTTP. Beside its checks of each
+member and of the hub, the panel says whether the hub's coordinator is still
+hearth's template (`hearth check --copy`). `tests/test_demo.py` fails if the
 demo imports ShowRunner, edits `sys.path` or sets an attribute on a module.
 
 ## What to try

@@ -27,7 +27,8 @@ def test_a_refused_cue_changes_nothing_not_even_the_record(clock):
          "clock does not take 'tempo' (clock)"),
         ({"cue": {**CUE, "number": "4"}, "action": {}},
          "clock takes an action object (clock), not {}"),
-        ({"cue": "4", "action": {"clock": "lap"}}, "cue must be an object: {number, name, fired_at}"),
+        ({"cue": "4", "action": {"clock": "lap"}},
+         "cue must be an object: {number, name, fired_at}"),
         (["not", "an", "object"], "the body must be a JSON object with a cue and an action"),
     ]:
         assert clock.receive(body) == (422, {"ok": False, "error": error})
