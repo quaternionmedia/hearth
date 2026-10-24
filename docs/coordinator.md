@@ -1,8 +1,20 @@
-# The coordinator
+# The coordinator template
 
 A coordinator delivers each fire's family block to the members it names, and
-keeps what each answered. `hearth.coordinator` is the whole of that. An
-exemplar makes it a running hub by supplying what hearth leaves open:
+keeps what each answered. hearth holds it as a template,
+[`template/coordinator.py`](../template/coordinator.py), outside the package:
+an app that coordinates a family, an **exemplar**, copies it into its own code
+and owns the copy. Nothing imports it from hearth, so an exemplar depends on
+nothing of hearth, and `hearth check --hub URL` holds every copy to the
+contract from outside.
+
+This is the corpus's own split between what a project copies and what runs in
+place. The template is copied, so it forks: the copy is the exemplar's to
+change, and a change to the template reaches it only when its owner carries it
+in. The check runs in place, so a fix to the check reaches every exemplar the
+next time it is run.
+
+## What an exemplar supplies
 
 | An exemplar supplies | ShowRunner | The looper in `tests/test_coordinator.py` |
 |---|---|---|
@@ -10,11 +22,31 @@ exemplar makes it a running hub by supplying what hearth leaves open:
 | Where the block is | the cue's `actions["family"]` | its own |
 | Where the coordinator runs | ShowFamily, a pluggy plugin of the hub; its table is `[plugins.family]` | a FastAPI app; its table is `[looper.family]` |
 | The members in its own process | members of `show-control`, from `showrunner_family_members` | none |
-| What it is | `identity("showrunner", "show-control", version)` | `identity("looper", "instruments")` |
+| What it is | `showrunner`, of `show-control` | `looper`, of `instruments` |
 
-Both serve the same routes and pass the same check, `hearth check --hub URL`.
+Both serve the same routes and pass the same check. ShowRunner's copy came
+first: the template was cut from its family plugin on 2026-10-24, with what
+fires and where it runs left open, and ShowRunner keeps its own.
 
-## What the coordinator does
+## Forking it
+
+1. Copy `template/coordinator.py` into the exemplar, under any name.
+2. Set its `Copied from:` line to the hearth revision it came from.
+3. Supply the five things above: call `fire(cue, block)` when something fires,
+   make the coordinator from the exemplar's settings with `from_table`, serve
+   `router` in the exemplar's app, close it at the app's stop, and answer
+   `identity(hub, family, version)`.
+4. Run `hearth check --hub URL` against the running exemplar from hearth's own
+   environment, or, once hearth is published, with
+   `uvx --from qm-hearth hearth check --hub URL`.
+
+To take a later change to the template, diff the copy against the revision
+its `Copied from:` line names, then carry in what the exemplar wants, and move
+the line. The exemplar may have changed what it owns, so a copy is never
+overwritten whole. Nothing reports a copy that has fallen behind the template;
+the check reports a copy that breaks the contract.
+
+## What the template does
 
 **Three ways to a member.** A member named by URL is pushed to: `POST
 <url>/family/cue`. A member hosted in the coordinator's process is handed the
@@ -49,11 +81,9 @@ contract it keeps, and the running instance. The instance is the process, so
 a coordinator remade when its settings change is the same instance to its
 members.
 
-## What an exemplar does with it
+## Its calls
 
 ```python
-from hearth import coordinator
-
 running = coordinator.from_table(settings, local=hosted, table="[plugins.family]")
 app.include_router(coordinator.router(lambda: running, lambda: coordinator.identity(
     "showrunner", "show-control", version), table="[plugins.family]"))
@@ -70,9 +100,12 @@ running.fire({"number": "3", "name": "Second tune", "fired_at": fired_at}, block
   when its settings change. Until there is one, the index is empty.
 - `fire(cue, block)` takes the contract's `cue`, `{"number", "name",
   "fired_at"}`, whatever fired: a beat is a cue to the contract.
-- `close()` at the exemplar's shutdown ends the queues. A delivery already on
-  the wire finishes.
+- `close()` at the exemplar's stop ends the queues. A delivery already on the
+  wire finishes.
 
 The exemplar hosts in its own process only members of its own family
 ([`hosting.md`](hosting.md)), and says what it is before a hosted member
 starts, since the member reads the hub's family rather than assuming it.
+
+The template's tests are hearth's, `tests/test_coordinator.py`, and import it
+where it stands. A copy's tests are its exemplar's.

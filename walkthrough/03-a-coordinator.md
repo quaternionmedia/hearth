@@ -3,14 +3,16 @@
 > **Runtime: hermetic.** No port: the members are in this process.
 
 A coordinator is the other side of the contract: something fires, and it hands
-each member the part of the family block that names it. This page is an
-exemplar at its smallest, a looper whose downbeat is what fires, with a clock
-hosted in its process and a page that reads its action, and shows what the
-coordinator keeps.
+each member the part of the family block that names it. hearth holds it as a
+template, `template/coordinator.py`, which an exemplar copies into its own
+code and owns; this page imports it where it stands, as hearth's tests do. It
+is an exemplar at its smallest, a looper whose downbeat is what fires, with a
+clock hosted in its process and a page that reads its action, and shows what
+the coordinator keeps.
 
 ```python
 >>> import hearth
->>> from hearth import coordinator
+>>> import coordinator
 >>> class Clock(hearth.Member):
 ...     name, family, verbs = "clock", "instruments", ("clock",)
 ...     laps = 0

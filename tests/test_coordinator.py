@@ -1,4 +1,4 @@
-"""The coordinator: a family block, delivered to the members it names, and every outcome.
+"""The coordinator template: a family block, delivered to the members it names, and every outcome.
 
 The push members here are fakes on real ports (``tests/fakes.py``), so every
 delivery is a real HTTP request. The coordinator's routes are mounted as an
@@ -11,13 +11,14 @@ from __future__ import annotations
 import json
 import threading
 
+import coordinator  # the template, where it stands; an exemplar copies it
 import httpx
 import pytest
 from fakes import FakeMember, dead_url
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from hearth import conformance, coordinator, testing
+from hearth import conformance, testing
 
 CUE = {"number": "3", "name": "Second tune", "fired_at": "2026-10-10T21:00:00.000001+00:00"}
 TABLE = "[plugins.family]"  # the table these tests' exemplar names its members in
@@ -85,6 +86,25 @@ def sse_actions(stream):
 
 def outcome(found: dict, member: str) -> dict:
     return next(o for o in found["last"] if o["member"] == member)
+
+
+# --- a template, not a dependency ---------------------------------------------
+
+def test_the_template_imports_nothing_of_hearth_so_a_copy_needs_nothing_of_it():
+    """An exemplar copies the template and depends on nothing of hearth.
+
+    Mutation: ``from hearth.member import CONTRACT`` in the template -- red here.
+    """
+    import ast
+    from pathlib import Path
+
+    tree = ast.parse(Path(coordinator.__file__).read_text(encoding="utf-8"))
+    imported = {alias.name.split(".")[0] for node in ast.walk(tree)
+                if isinstance(node, ast.Import) for alias in node.names}
+    imported |= {(node.module or "").split(".")[0] if not node.level else "."
+                 for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+    assert not imported & {"hearth", "."}
+    assert "Copied from: this is the template." in coordinator.__doc__
 
 
 # --- push --------------------------------------------------------------------

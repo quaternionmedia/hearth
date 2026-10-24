@@ -1,8 +1,9 @@
 """hearth: the coordinator of a qm family, and the contract its members keep.
 
-A coordinator (``hearth.coordinator``) delivers each fire's family block to
-the members it names and keeps every outcome; what fires, and where it runs,
-are its exemplar's, and ShowRunner is the first.
+A coordinator delivers each fire's family block to the members it names and
+keeps every outcome. hearth holds it as a template, ``template/coordinator.py``
+outside this package, which an exemplar copies and owns: what fires, and where
+it runs, are the exemplar's, and ShowRunner is the first.
 
 A member says what an action changes and what its state is (``Member``). Every
 host serves it the same four routes: alone on its own port (``hearth.web.app``),

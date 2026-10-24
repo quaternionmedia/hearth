@@ -1,5 +1,16 @@
 """A family's coordinator: whatever fires, delivered to the members its family block names.
 
+**Origin.** hearth's coordinator template, ``template/coordinator.py``, for
+the family contract ``family/1``. In hearth this file is the template; anywhere
+else it is a copy, and the app it was copied into owns it. It imports nothing
+of hearth, so neither does a copy: an exemplar forks the template, changes
+what it needs to, and keeps the contract, which ``hearth check --hub URL``
+judges from outside. A change to the template reaches a copy only when the
+copy's owner carries it in, diffing first, since the owner may have changed
+what it owns. A copy records where it came from on the line below.
+
+Copied from: this is the template.
+
 A **coordinator** holds a family's members and, whenever something fires,
 hands each member the part of the family block that names it. It is the other
 side of the contract every member keeps (``docs/contract.md``), and it reaches
@@ -29,9 +40,9 @@ instance the member's own answer names.
 here knows a cue list, a beat or a scene. An exemplar decides when something
 fires, finds its family block, names it with a ``cue`` (the contract's word for
 whatever fired), and serves ``router`` in its own app with ``identity`` saying
-what it is. ShowRunner is the first exemplar: its programmer fires a cue, the
-cue's ``actions`` carry the block, and ``showrunner.plugins.family`` holds the
-coordinator as a pluggy plugin.
+what it is. ShowRunner is the first exemplar, and the template was cut from
+its family plugin: there a cue fires, the cue's ``actions`` carry the block,
+and the coordinator is a pluggy plugin.
 
 Delivery runs on worker threads, never on the event loop: one queue per push or
 local member, so its blocks arrive in the order they fired. Each push member has
@@ -63,7 +74,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
-from .member import CONTRACT
+CONTRACT = "family/1"  # the contract this coordinator keeps, both sides of it
 
 DEFAULT_TIMEOUT = 5.0  # seconds per delivery
 KEPT = 200  # outcomes listed at GET /family/, oldest dropped first

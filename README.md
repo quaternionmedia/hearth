@@ -8,17 +8,19 @@ another project's.
 A family's members are separate apps. A **coordinator** is what they gather
 round: something fires, and the coordinator hands each member its part of the
 fire's family block, keeps every outcome, and credits each to the instance
-that answered. hearth is that coordinator with two things left open. What
-fires, and where the coordinator runs, belong to an **exemplar**. ShowRunner is
-the first exemplar: a cue fires, the cue's actions carry the block, and its
-ShowFamily plugin holds the coordinator.
+that answered. hearth holds that coordinator as a **template** with two things
+left open. What fires, and where the coordinator runs, belong to an
+**exemplar**, which copies the template into its own code and owns the copy,
+so it depends on nothing of hearth. ShowRunner is the first exemplar, and the
+template was cut from its ShowFamily plugin: a cue fires, and the cue's actions
+carry the block.
 
 | Side | What hearth gives | Read |
 |---|---|---|
-| The coordinator | `hearth.coordinator`: each member pushed to, called in-process or pulled; a client and a queue per member; every outcome; the `/family/*` routes a hub serves | [`docs/coordinator.md`](docs/coordinator.md) |
+| The coordinator template | [`template/coordinator.py`](template/coordinator.py), copied by an exemplar, never imported: each member pushed to, called in-process or pulled; a client and a queue per member; every outcome; the `/family/*` routes a hub serves | [`docs/coordinator.md`](docs/coordinator.md) |
 | A member | `hearth.Member`: the envelope, the refusal, the record of the last cue, its followers; the four routes every member answers | [`docs/contract.md`](docs/contract.md) |
 | Hosting a member | served alone, beside an aiohttp page, or inside its hub when the two share a family | [`docs/hosting.md`](docs/hosting.md) |
-| The check | `hearth check URL` judges a member, `hearth check --hub URL` a coordinator, in any language, by the routes alone | `hearth.conformance` |
+| The check | `hearth check URL` judges a member, `hearth check --hub URL` a coordinator, in any language, by the routes alone; it runs in place, from outside what it judges | `hearth.conformance` |
 
 A member is served by whichever host fits it:
 

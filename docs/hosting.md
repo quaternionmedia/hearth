@@ -42,8 +42,8 @@ The plugin answers ShowRunner's hooks: `showrunner_register`,
 `showrunner_startup`, `showrunner_shutdown`, `showrunner_get_routes`,
 `showrunner_get_nav` and `showrunner_family_members`. The last hands the
 hub's coordinator the member's `receive`, found at each call, so the
-coordinator delivers a cue by a call and audits it as `via: "local"`. A URL for the same name in
-`[plugins.family.members]` wins over the hosted member.
+coordinator delivers a cue by a call and audits it as `via: "local"`. A URL
+for the same name in `[plugins.family.members]` wins over the hosted member.
 
 At the hub's startup the plugin first asks what the hub is. It hosts nothing,
 and says why once, when the hub does not declare `showrunner_hub_identity`
