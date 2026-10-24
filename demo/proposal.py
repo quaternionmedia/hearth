@@ -176,8 +176,10 @@ def members(dev: Path, work: Path, port: int) -> list[Spec]:
              f"http://127.0.0.1:{port + 10}", cwd=str(dev / "ShowStopper"), env=clean),
         Spec("carlos", run("carlos", "--port", str(port + 20)),
              f"http://127.0.0.1:{port + 20}", cwd=str(dev / "carlos"), env=clean),
+        # joe serves only its media API until told: the hub's cues, and its page's library.
         Spec("joe", run("joe", "--port", str(port + 30), "--api-port", str(port + 31),
-                        "--qmcp-url", f"http://127.0.0.1:{port + 32}"),
+                        "--qmcp-url", f"http://127.0.0.1:{port + 32}",
+                        "--allow", "family", "--allow", "library"),
              f"http://127.0.0.1:{port + 31}", cwd=str(dev / "joe"), env=clean),
         Spec("leo", run("leo", "--port", str(port + 40), "--follow", f"http://127.0.0.1:{port}"),
              f"http://127.0.0.1:{port + 40}", cwd=str(dev / "leo"), env=clean, ready="/"),
