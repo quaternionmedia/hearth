@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import socket
 import sys
 import tempfile
 import threading
@@ -132,6 +133,18 @@ class Rack(kin.Member):
 
     def state(self) -> dict:
         return {}
+
+
+def taken(ports: list[int]) -> list[int]:
+    """The ports something on this machine already listens on: an earlier run, most likely."""
+    busy = []
+    for port in ports:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+            except OSError:
+                busy.append(port)
+    return busy
 
 
 def fresh(work: Path | None) -> Path:
@@ -296,6 +309,11 @@ def main() -> int:
                         help="this run's state, emptied first (default: a new temporary one)")
     parser.add_argument("--port", type=int, default=18700, help="the hub's port; members above it")
     args = parser.parse_args()
+    # Before anything is emptied: a run still serving holds the state an empty start removes.
+    busy = taken([args.port + offset for offset in (0, 10, 20, 30, 31, 40)])
+    if busy:
+        raise SystemExit(f"ports {', '.join(map(str, busy))} are in use, by an earlier run "
+                         f"most likely: stop it, or give another --port")
     dev, work = args.dev.resolve(), fresh(args.work)
     port, base = args.port, f"http://127.0.0.1:{args.port}"
     device = work / "beat-box.device"

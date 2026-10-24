@@ -62,3 +62,16 @@ def test_a_run_begins_from_nothing_and_never_empties_a_directory_it_did_not_make
     with pytest.raises(SystemExit, match="did not make"):
         demo.fresh(theirs)
     assert (theirs / "notes.txt").read_text(encoding="utf-8") == "keep me"
+
+
+def test_a_port_already_listened_on_is_named_before_anything_is_emptied(demo):
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as held:
+        held.bind(("127.0.0.1", 0))
+        held.listen()
+        port = held.getsockname()[1]
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as spare:
+            spare.bind(("127.0.0.1", 0))
+            free = spare.getsockname()[1]
+        assert demo.taken([port, free]) == [port]
