@@ -406,8 +406,8 @@ def main() -> int:
                        "failed": "; ".join(f.what for f in report.findings if not f.ok)})
         copy = copies.check(dev / "ShowRunner" / COPY)
         checks.append({"what": "the hub's coordinator", "url": COPY, "status": copy.status,
-                       "verdict": "is the template" if copy.status == 0 else "is not the template",
-                       "failed": copy.said})
+                       "verdict": copy.said if copy.status == 0 else "is not the template",
+                       "failed": "" if copy.status == 0 else copy.said})
         for check in checks:
             print(f"  hearth check {check['what']}: {check['verdict']} {check['failed']}",
                   flush=True)
