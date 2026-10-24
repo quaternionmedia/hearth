@@ -1,38 +1,48 @@
-"""The proposal, running: extensions in the hub, members beside it, one contract either way.
+"""The proposal, running: ShowRunner as itself, its plugins installed beside it, members beside it.
 
-What `plans/plugin-or-server.md` in the corpus proposes, on one machine:
+What `plans/plugin-or-server.md` in the corpus proposes, on one machine, with
+every part run the way it would run at a show:
 
-* **The hub** is ShowRunner, in this process. It says what it is
-  (`GET /family/identity`), delivers each cue's family block, and asks every
-  member it pushes to who it is, so its audit names the instance that answered.
+* **The hub** is ShowRunner, started by its own command, `sr start --config
+  <work>/hub/show.toml`, run by its module, `python -m showrunner.cli`, in a
+  process of its own and kept running by `hearth.supervise` like the members. This script imports nothing
+  of ShowRunner and changes nothing in it.
+* **Its plugins are installed beside it.** The hub's run adds hearth, this
+  demo's `plugins/` package and ShowStopper to ShowRunner's environment
+  (`uv run --with-editable`), and ShowRunner's loader finds them through the
+  `showrunner` entry points, as it finds any plugin. Its show.toml configures
+  them: `[plugins.family]` names the members, `[plugins.metronome]` the
+  metronome's device, and `[plugins] disabled` turns off ShowStopper's hosted
+  clock, since the clock runs beside the hub.
 * **An extension in the hub**: ShowStopper's clock extension adds a `clock`
   layer type, a Clock layer and a ⏱ chip under each cue that drives the clock
   in `/script`. It reads the hub's data and never talks to the clock.
-* **Members beside the hub**, each its own process, kept running by
-  `hearth.supervise`: ShowStopper's clock, carlos, joe (pushed to) and leo (which
-  follows the hub's stream). Crash one from the panel and watch it come back
-  as a new instance.
+* **Members beside the hub**, each its own process: ShowStopper's clock,
+  carlos, joe (pushed to) and leo (which follows the hub's stream). Crash one
+  from the panel, or the hub itself, and watch it come back as a new instance.
 * **A member hosted in the hub**: a metronome whose MIDI device is missing at
   startup. The hub runs on; the metronome is *not ready* and retried, and
   becomes ready when its device is "plugged in" from the panel.
 * **The family border**: an instruments-family rack offered to the hub as a
   hosted plugin is refused, and says why.
+* **The show** is made through the hub's own routes, and **the panel** is this
+  script's page, on the port above the hub's: it reads the hub and the members
+  over HTTP, and acts through the hub's routes and the supervisor.
 
-Run it in the environment of a ShowRunner checkout carrying the family stack::
+Run it from this checkout, with the member checkouts in `<dev>` on their
+family branches (ShowRunner, ShowStopper, carlos, joe, leo)::
 
-    cd <dev>/ShowRunner
-    uv run --no-sync python <hearth>/demo/proposal.py --dev <dev>
+    uv run python demo/proposal.py --dev <dev>
 
-`<dev>` holds the member checkouts (ShowStopper, carlos, joe, leo) on their
-family branches; this checkout's hearth and `<dev>/ShowStopper` are put on the
-path. Each run begins from nothing in a fresh `--work` directory. Open
-`http://127.0.0.1:18700/demo`; the panel says what to try. Ctrl+C stops
-everything it started.
+Each run begins from nothing in a fresh `--work` directory. Open
+`http://127.0.0.1:18701/`; the panel says what to try. Ctrl+C stops everything
+it started.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import socket
 import sys
@@ -43,18 +53,18 @@ from pathlib import Path
 
 import httpx
 import uvicorn
-from fastapi import APIRouter
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
-# This checkout's hearth, whatever the hub's environment holds.
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
-import hearth
 from hearth import conformance
-from hearth import showrunner as hosting
 from hearth.supervise import Spec, Supervisor, _kill_tree
 
+HEARTH = Path(__file__).resolve().parents[1]
+PLUGINS = HEARTH / "demo" / "plugins"  # the metronome and the rack, as an installable package
 MARK = ".hearth-proposal"  # a --work directory this demo made, and may empty again
+# What a member's process is started without: the shell's own environment, which
+# would point uv at another project's.
+CLEAN = {"VIRTUAL_ENV": None, "PYTHONPATH": None, "UV_PROJECT_ENVIRONMENT": None}
 
 SCRIPT = """Title: Proposal night
 
@@ -96,49 +106,16 @@ CUES = [
 ]
 
 
-class Metronome(hearth.Member):
-    """A member hosted in the hub, whose MIDI clock device may not be there yet."""
-
-    name, family, verbs = "metronome", "show-control", ("beat",)
-
-    def __init__(self, device: Path) -> None:
-        super().__init__()
-        self.device, self.bpm, self.beats = device, None, 0
-
-    def start(self) -> None:
-        if not self.device.exists():
-            raise OSError(f"no MIDI clock device 'Beat Box' (it appears as {self.device.name})")
-
-    def understand(self, action):
-        bpm = action["beat"]
-        if not isinstance(bpm, int) or not 20 <= bpm <= 300:
-            raise hearth.Refused(f"a beat is 20 to 300 bpm, not {hearth.shown(bpm)}")
-
-        def change():
-            self.bpm, self.beats = bpm, self.beats + 1
-
-        return change
-
-    def state(self) -> dict:
-        return {"bpm": self.bpm, "beats": self.beats}
+def ports(port: int) -> dict[str, int]:
+    """Every port a run binds: the hub's, the panel's above it, and the members' above that."""
+    return {"hub": port, "panel": port + 1, "showstopper": port + 10, "carlos": port + 20,
+            "joe": port + 30, "joe api": port + 31, "leo": port + 40}
 
 
-class Rack(hearth.Member):
-    """An instruments-family member, offered to a show-control hub: it must be refused."""
-
-    name, family, verbs = "rack", "instruments", ("turn",)
-
-    def understand(self, action):
-        return lambda: None
-
-    def state(self) -> dict:
-        return {}
-
-
-def taken(ports: list[int]) -> list[int]:
+def taken(candidates: list[int]) -> list[int]:
     """The ports something on this machine already listens on: an earlier run, most likely."""
     busy = []
-    for port in ports:
+    for port in candidates:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             try:
                 probe.bind(("127.0.0.1", port))
@@ -163,83 +140,100 @@ def fresh(work: Path | None) -> Path:
     return work
 
 
+def show_toml(work: Path, port: int) -> str:
+    """The hub's show.toml: where it keeps its show, and how each of its plugins is set up."""
+    at = ports(port)
+    state = work / "hub"
+    return (
+        f'[server]\nhost = "127.0.0.1"\nport = {port}\n\n'
+        f'[database]\npath = {json.dumps((state / "show.db").as_posix())}\n\n'
+        "# ShowStopper's clock runs beside the hub, so its hosted plugin stays off.\n"
+        '[plugins]\ndisabled = ["showstopper"]\n\n'
+        f'[plugins.showlogger]\nlevel = "INFO"\nfile = {json.dumps((state / "show.log").as_posix())}\n\n'
+        '[plugins.family]\npull = ["leo"]\ntimeout = 5.0\n\n'
+        "[plugins.family.members]\n"
+        f'showstopper = "http://127.0.0.1:{at["showstopper"]}"\n'
+        f'carlos = "http://127.0.0.1:{at["carlos"]}"\n'
+        f'joe = "http://127.0.0.1:{at["joe api"]}"\n\n'
+        f'[plugins.metronome]\ndevice = {json.dumps((work / "beat-box.device").as_posix())}\n'
+    )
+
+
+def hub(dev: Path, work: Path, port: int) -> Spec:
+    """ShowRunner, run by its own command, with hearth, the demo's plugins and ShowStopper
+    installed beside it for this run alone; its checkout and its lock are left as they are."""
+    state = work / "hub"
+    state.mkdir(parents=True, exist_ok=True)
+    config = state / "show.toml"
+    config.write_text(show_toml(work, port), encoding="utf-8")
+    # ShowRunner's CLI by its module, run by this run's interpreter: the `sr` script
+    # belongs to ShowRunner's own environment, which does not see what is installed beside it.
+    command = ["uv", "run", "--no-sync", "--project", str(dev / "ShowRunner"),
+               "--with-editable", str(HEARTH), "--with-editable", str(PLUGINS),
+               "--with-editable", str(dev / "ShowStopper"),
+               "python", "-m", "showrunner.cli", "start", "--config", str(config),
+               "--host", "127.0.0.1", "--port", str(port)]
+    return Spec("hub", command, f"http://127.0.0.1:{port}", cwd=str(state), env=CLEAN)
+
+
 def members(dev: Path, work: Path, port: int) -> list[Spec]:
+    at = ports(port)
+
     def run(member: str, *args: str) -> list[str]:
         checkout = {"showstopper": "ShowStopper"}.get(member, member)
         return ["uv", "run", "--no-sync", "--project", str(dev / checkout), member, "serve",
                 "--host", "127.0.0.1", *args, "--state", str(work / member)]
 
-    clean = {"VIRTUAL_ENV": None, "PYTHONPATH": None, "UV_PROJECT_ENVIRONMENT": None}
     # Each runs in its own checkout: carlos, for one, finds itself from where it starts.
     return [
-        Spec("showstopper", run("showstopper", "--port", str(port + 10)),
-             f"http://127.0.0.1:{port + 10}", cwd=str(dev / "ShowStopper"), env=clean),
-        Spec("carlos", run("carlos", "--port", str(port + 20)),
-             f"http://127.0.0.1:{port + 20}", cwd=str(dev / "carlos"), env=clean),
+        Spec("showstopper", run("showstopper", "--port", str(at["showstopper"])),
+             f"http://127.0.0.1:{at['showstopper']}", cwd=str(dev / "ShowStopper"), env=CLEAN),
+        Spec("carlos", run("carlos", "--port", str(at["carlos"])),
+             f"http://127.0.0.1:{at['carlos']}", cwd=str(dev / "carlos"), env=CLEAN),
         # joe serves only its media API until told: the hub's cues, and what its page reads.
-        Spec("joe", run("joe", "--port", str(port + 30), "--api-port", str(port + 31),
+        Spec("joe", run("joe", "--port", str(at["joe"]), "--api-port", str(at["joe api"]),
                         "--qmcp-url", f"http://127.0.0.1:{port + 32}",
                         "--allow", "family", "--allow", "library", "--allow", "transcripts"),
-             f"http://127.0.0.1:{port + 31}", cwd=str(dev / "joe"), env=clean),
-        Spec("leo", run("leo", "--port", str(port + 40), "--follow", f"http://127.0.0.1:{port}"),
-             f"http://127.0.0.1:{port + 40}", cwd=str(dev / "leo"), env=clean, ready="/"),
+             f"http://127.0.0.1:{at['joe api']}", cwd=str(dev / "joe"), env=CLEAN),
+        Spec("leo", run("leo", "--port", str(at["leo"]), "--follow", f"http://127.0.0.1:{port}"),
+             f"http://127.0.0.1:{at['leo']}", cwd=str(dev / "leo"), env=CLEAN, ready="/"),
     ]
 
 
-def hub(work: Path, port: int, extras: list):
-    """ShowRunner as the hub, with the demo's plugins registered beside its own."""
-    import showrunner.app as app_module
-
-    state = work / "hub"
-    state.mkdir(parents=True, exist_ok=True)
-    config = state / "show.toml"
-    config.write_text(
-        f'[database]\npath = "{(state / "show.db").as_posix()}"\n\n'
-        f"[server]\nport = {port}\n\n"
-        '[plugins.family]\npull = ["leo"]\ntimeout = 5.0\n\n'
-        "[plugins.family.members]\n"
-        f'showstopper = "http://127.0.0.1:{port + 10}"\n'
-        f'carlos = "http://127.0.0.1:{port + 20}"\n'
-        f'joe = "http://127.0.0.1:{port + 31}"\n\n'
-        f'[plugins.metronome]\ndevice = "{(work / "beat-box.device").as_posix()}"\n',
-        encoding="utf-8")
-    original = app_module.get_plugin_manager
-
-    def with_the_demo(config):
-        pm = original(config)
-        for plugin in extras:
-            pm.register(plugin, name=getattr(plugin, "__name__", None))
-        return pm
-
-    app_module.get_plugin_manager = with_the_demo
-    try:
-        return app_module.ShowRunner(config_path=config)
-    finally:
-        app_module.get_plugin_manager = original
-
-
 def seed(base: str) -> tuple[int, int]:
-    """The show, made through the hub's routes and its database: (show id, cue list id)."""
-    from showrunner.models import Cue, CueList, Script
-    from showrunner.plugins.db import get_db
+    """The show, made through the hub's own routes: (show id, cue list id)."""
+    with httpx.Client(base_url=base, timeout=10) as hub_api:
+        def made(method: str, path: str, **kwargs) -> dict:
+            answer = hub_api.request(method, path, **kwargs)
+            answer.raise_for_status()
+            return answer.json()
 
-    show = httpx.post(f"{base}/db/shows", params={"name": "Proposal night"}).json()["id"]
-    lines = SCRIPT.splitlines()
-    with get_db().session() as session:
-        session.add(Script(show_id=show, title="Proposal night", format="fountain",
-                           content=SCRIPT))
-        cue_list = CueList(show_id=show, name="Main")
-        session.add(cue_list)
-        session.commit()
-        session.refresh(cue_list)
+        show = made("POST", "/db/shows", params={"name": "Proposal night"})["id"]
+        made("POST", f"/db/shows/{show}/scripts",
+             json={"title": "Proposal night", "format": "fountain", "content": SCRIPT})
+        cue_list = made("POST", f"/db/shows/{show}/cue-lists", json={"name": "Main"})["id"]
+        lines = SCRIPT.splitlines()
         for number, name, layer, line, family in CUES:
-            session.add(Cue(cue_list_id=cue_list.id, number=str(number), name=name, layer=layer,
-                            notes=NOTES[number], actions={"family": family},
-                            script_line=next(i for i, text in enumerate(lines, 1)
-                                             if text.startswith(line)),
-                            script_char=0))
-        session.commit()
-        return show, cue_list.id
+            made("POST", f"/db/cue-lists/{cue_list}/cues",
+                 json={"number": number, "name": name, "layer": layer, "notes": NOTES[number],
+                       "actions": {"family": family},
+                       "script_line": next(i for i, text in enumerate(lines, 1)
+                                           if text.startswith(line)),
+                       "script_char": 0})
+        return show, cue_list
+
+
+def hosted_state(base: str, name: str) -> dict:
+    """What a member hosted in the hub says it is, at the hub's own address for it."""
+    try:
+        said = httpx.get(f"{base}/{name}/family/identity", timeout=3)
+    except httpx.HTTPError as exc:
+        return {"ready": False, "said": f"the hub did not answer: {type(exc).__name__}"}
+    body = said.json() if said.headers.get("content-type", "").startswith("application/json") \
+        else {}
+    if said.status_code == 200:
+        return {"ready": True, "said": "ready", "instance": body.get("instance")}
+    return {"ready": False, "said": body.get("error") or f"answered {said.status_code}"}
 
 
 PANEL = """<!doctype html><meta charset=utf-8><title>The proposal, running</title>
@@ -258,24 +252,26 @@ button:hover{border-color:var(--fg)}a{color:inherit}.wrap{overflow-x:auto}
 </style>
 <main>
 <div><h1>The proposal, running</h1>
-<p>Extensions in the hub; members beside it, kept running; one contract either way. This panel asks <code>/demo/state</code> once a second.</p></div>
+<p>ShowRunner as itself, its plugins installed beside it; members beside it, kept running; one contract either way. This page is the demo's own, beside the hub, and asks <code>/state</code> once a second.</p></div>
 <div><h2>What to try</h2><ol>
 <li><b>Fire the five cues.</b> Each one's family block goes to every member it names: pushed to ShowStopper, carlos and joe in milliseconds, read by leo from the hub's stream, handed in-process to the metronome. leo is a page, and the page is what follows: open <i>leo, following the hub</i> under Look and its deliveries are read in a few milliseconds; with no page open they wait unread. The metronome answers 503 <i>not ready</i>, its device missing; the rack 503 <i>not hosted</i>, being another family's. Neither stops the hub or the cue.</li>
 <li><b>Plug in the metronome's device.</b> Within eight seconds the hub's retry finds it ready. Go back to cue 1 and fire cue 2: it answers 200.</li>
-<li><b>Crash carlos.</b> The supervisor brings it back as a new instance in about a second. Fire a cue naming carlos (1, 3 or 4): the audit credits the new instance, and marks the answers of the one before it.</li>
+<li><b>Crash carlos.</b> The supervisor brings it back as a new instance in a few seconds. Fire a cue naming carlos (1, 3 or 4): the audit credits the new instance, and marks the answers of the one before it.</li>
+<li><b>Crash the hub.</b> It is a process like the members, and comes back with its show; the members keep running, and leo follows it again.</li>
 <li><b>Open the script.</b> The &#x23F1; chip under each Clock cue drives the clock through the hub, by ShowStopper's extension; the clock itself is the member beside the hub.</li>
 </ol></div>
 <div><h2>Act</h2><div class=row>
-<button onclick="post('/demo/go')">Fire the next cue</button>
-<button onclick="post('/demo/reset')">Back to cue 1</button>
-<button onclick="post('/demo/metronome/plug')">Plug in the metronome's device</button>
-<button onclick="post('/demo/crash/carlos')">Crash carlos</button>
-<button onclick="post('/demo/crash/showstopper')">Crash ShowStopper</button>
+<button onclick="post('go')">Fire the next cue</button>
+<button onclick="post('reset')">Back to cue 1</button>
+<button onclick="post('metronome/plug')">Plug in the metronome's device</button>
+<button onclick="post('crash/carlos')">Crash carlos</button>
+<button onclick="post('crash/showstopper')">Crash ShowStopper</button>
+<button onclick="post('crash/hub')">Crash the hub</button>
 </div><p id=said></p></div>
 <div><h2>Look</h2><div class=row id=links></div></div>
 <div><h2>The cues</h2><div class=wrap><table id=sheet></table></div></div>
-<div><h2>Members beside the hub (supervised)</h2><div class=wrap><table id=sup></table></div></div>
-<div><h2>In the hub</h2><div class=wrap><table id=hosted></table></div></div>
+<div><h2>Each its own process (supervised)</h2><div class=wrap><table id=sup></table></div></div>
+<div><h2>In the hub, as ShowRunner loaded it</h2><div class=wrap><table id=hosted></table></div></div>
 <div><h2>Deliveries, newest first (the hub's audit)</h2><div class=wrap><table id=audit></table></div></div>
 <div><h2>The contract, checked</h2><div class=wrap><table id=checks></table></div></div>
 </main>
@@ -285,11 +281,11 @@ async function post(path){const r=await fetch(path,{method:'POST'});document.get
 function rows(id, head, body){document.getElementById(id).innerHTML='<tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr>'+body.join('');}
 async function tick(){
   try{
-    const s=await (await fetch('/demo/state',{cache:'no-store'})).json();
+    const s=await (await fetch('state',{cache:'no-store'})).json();
     document.getElementById('links').innerHTML=s.links.map(([t,u])=>'<a href="'+esc(u)+'" target=_blank>'+esc(t)+'</a>').join(' · ');
     rows('sheet',['cue','name','layer','on the line','names'],s.sheet.map(c=>
       '<tr class="'+(c.fired?'now':'')+'"><td>'+esc(c.number)+(c.fired?' &#x25C0; last fired':'')+'</td><td>'+esc(c.name)+'</td><td>'+esc(c.layer)+'</td><td>'+esc(c.line)+'</td><td>'+esc(c.members.join(', '))+'</td></tr>'));
-    rows('sup',['member','state','instance','pid','restarts','exits'],Object.entries(s.supervised).map(([n,w])=>
+    rows('sup',['process','state','instance','pid','restarts','exits'],Object.entries(s.supervised).map(([n,w])=>
       '<tr><td>'+esc(n)+'</td><td class="'+esc(w.state)+'">'+esc(w.state)+'</td><td><code>'+esc(w.instance)+'</code></td><td>'+esc(w.pid)+'</td><td>'+esc(w.restarts)+'</td><td>'+esc(w.exits.join(', '))+'</td></tr>'));
     rows('hosted',['what','kind','state'],s.hosted.map(h=>'<tr><td>'+esc(h.name)+'</td><td>'+esc(h.kind)+'</td><td class="'+esc(h.css)+'">'+esc(h.state)+'</td></tr>'));
     rows('audit',['cue','member','via','status','ms','instance','error'],s.audit.map(o=>
@@ -303,61 +299,44 @@ tick();
 """
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--dev", type=Path, required=True,
-                        help="the directory holding ShowStopper, carlos, joe and leo")
-    parser.add_argument("--work", type=Path,
-                        help="this run's state, emptied first (default: a new temporary one)")
-    parser.add_argument("--port", type=int, default=18700, help="the hub's port; members above it")
-    args = parser.parse_args()
-    # Before anything is emptied: a run still serving holds the state an empty start removes.
-    busy = taken([args.port + offset for offset in (0, 10, 20, 30, 31, 40)])
-    if busy:
-        raise SystemExit(f"ports {', '.join(map(str, busy))} are in use, by an earlier run "
-                         f"most likely: stop it, or give another --port")
-    dev, work = args.dev.resolve(), fresh(args.work)
-    port, base = args.port, f"http://127.0.0.1:{args.port}"
-    device = work / "beat-box.device"
-    hosting.RETRY_CAP = 8.0  # a demo should not make anyone wait thirty seconds
-    print(f"this run's state: {work}", flush=True)
+def panel_app(base: str, port: int, supervisor: Supervisor, device: Path, state: dict,
+              checks: list[dict]) -> FastAPI:
+    """The demo's own page and its actions: it reads over HTTP and acts through the hub's
+    routes and the supervisor, as an operator's console beside the hub would."""
+    at = ports(port)
+    panel = FastAPI(title="The proposal, running")
 
-    sys.path.insert(0, str(dev / "ShowStopper"))
-    import showstopper_clock  # the clock's extension: needs ShowRunner, which is here
-
-    metronome = hosting.plugin(lambda s: Metronome(Path(s["device"])), name="metronome",
-                               family="show-control", description="A demo metronome")
-    rack = hosting.plugin(lambda s: Rack(), name="rack", family="instruments",
-                          description="An instrument offered to the wrong hub")
-    the_hub = hub(work, port, [showstopper_clock.plugin, metronome, rack])
-    supervisor = Supervisor(members(dev, work, port), logs=work / "logs",
-                            log=lambda text: print(text, flush=True))
-    checks: list[dict] = []
-    state = {"show": None, "cue_list": None}
-
-    panel = APIRouter(prefix="/demo")
-
-    @panel.get("", response_class=HTMLResponse)
+    @panel.get("/", response_class=HTMLResponse)
     def page():
         return PANEL
 
     @panel.get("/state")
     def demo_state():
-        audit = httpx.get(f"{base}/family/", timeout=5).json()
+        try:
+            audit = httpx.get(f"{base}/family/", timeout=3).json()
+        except httpx.HTTPError:
+            audit = {"last": []}
+        try:
+            layers = httpx.get(f"{base}/db/shows/{state['show']}/layers", timeout=3).json() \
+                if state["show"] else []
+        except httpx.HTTPError:
+            layers = []
+        clock = any(isinstance(layer, dict) and layer.get("type") == "clock" for layer in layers)
+        metronome, rack = hosted_state(base, "metronome"), hosted_state(base, "rack")
         hosted = [
             {"name": "ShowStopper clock extension", "kind": "extension (in the hub)",
-             "state": "loaded: a clock layer type, a Clock layer, ⏱ chips in /script",
-             "css": "up"},
-            {"name": "metronome", "kind": "member hosted in the hub",
-             "state": "ready" if metronome.member else metronome.why,
-             "css": "up" if metronome.member else "waiting"},
-            {"name": "rack", "kind": "member offered to the hub", "state": rack.why,
+             "state": ("loaded: a clock layer type, a Clock layer, ⏱ chips in /script" if clock
+                       else "no clock layer in the show"),
+             "css": "up" if clock else "waiting"},
+            {"name": "metronome", "kind": "member hosted in the hub", "state": metronome["said"],
+             "css": "up" if metronome["ready"] else "waiting"},
+            {"name": "rack", "kind": "member offered to the hub", "state": rack["said"],
              "css": "refused"},
         ]
         supervised = supervisor.status()
         current = {name: w["instance"] for name, w in supervised.items()}
-        if metronome.member is not None:
-            current["metronome"] = metronome.member.instance
+        if metronome.get("instance"):
+            current["metronome"] = metronome["instance"]
         last = audit.get("last", [])
         fired = last[-1]["cue"]["number"] if last else None
         for outcome in last:  # an answer from an instance since replaced, said so
@@ -371,10 +350,10 @@ def main() -> int:
                  ("the programmer", f"{base}/programmer"),
                  ("the hub's audit", f"{base}/family/"),
                  ("the hub's identity", f"{base}/family/identity"),
-                 ("ShowStopper", f"http://127.0.0.1:{port + 10}/"),
-                 ("carlos", f"http://127.0.0.1:{port + 20}/rack"),
-                 ("joe", f"http://127.0.0.1:{port + 30}/joe/"),
-                 ("leo, following the hub", f"http://127.0.0.1:{port + 40}/")]
+                 ("ShowStopper", f"http://127.0.0.1:{at['showstopper']}/"),
+                 ("carlos", f"http://127.0.0.1:{at['carlos']}/rack"),
+                 ("joe", f"http://127.0.0.1:{at['joe']}/joe/"),
+                 ("leo, following the hub", f"http://127.0.0.1:{at['leo']}/")]
         return {"supervised": supervised, "hosted": hosted, "links": links, "sheet": sheet,
                 "audit": list(reversed(last))[:24], "checks": checks}
 
@@ -403,25 +382,48 @@ def main() -> int:
         _kill_tree(watched.process)
         return {"ok": True, "said": f"{name} killed; the supervisor brings it back"}
 
-    the_hub.api.include_router(panel)
-    print(f"supervising {', '.join(supervisor.watched)}; starting the hub on {base}", flush=True)
-    supervisor.start()
-    the_hub.startup()
-    server = uvicorn.Server(uvicorn.Config(the_hub.api, host="127.0.0.1", port=port,
-                                           log_level="warning", lifespan="on"))
+    return panel
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--dev", type=Path, required=True,
+                        help="the directory holding ShowRunner, ShowStopper, carlos, joe and leo")
+    parser.add_argument("--work", type=Path,
+                        help="this run's state, emptied first (default: a new temporary one)")
+    parser.add_argument("--port", type=int, default=18700,
+                        help="the hub's port; the panel one above it, members above that")
+    args = parser.parse_args()
+    at = ports(args.port)
+    # Before anything is emptied: a run still serving holds the state an empty start removes.
+    busy = taken(list(at.values()))
+    if busy:
+        raise SystemExit(f"ports {', '.join(map(str, busy))} are in use, by an earlier run "
+                         f"most likely: stop it, or give another --port")
+    dev, work = args.dev.resolve(), fresh(args.work)
+    port, base = args.port, f"http://127.0.0.1:{args.port}"
+    print(f"this run's state: {work}", flush=True)
+
+    supervisor = Supervisor([hub(dev, work, port), *members(dev, work, port)],
+                            logs=work / "logs", log=lambda text: print(text, flush=True))
+    checks: list[dict] = []
+    state: dict = {"show": None, "cue_list": None}
+    panel = panel_app(base, port, supervisor, work / "beat-box.device", state, checks)
+    server = uvicorn.Server(uvicorn.Config(panel, host="127.0.0.1", port=at["panel"],
+                                           log_level="warning"))
     serving = threading.Thread(target=server.run, daemon=True)
-    serving.start()
+    print(f"supervising {', '.join(supervisor.watched)}; the hub on {base}", flush=True)
+    supervisor.start()
     try:
-        while not server.started:
-            time.sleep(0.1)
+        # The hub's first run builds the environment its plugins are installed in.
+        if not supervisor.wait_up(600):
+            print(f"not everything came up: {supervisor.status()}", flush=True)
         state["show"], state["cue_list"] = seed(base)
-        print(f"the show is on the hub; waiting for the members ({base}/demo)", flush=True)
-        if not supervisor.wait_up(240):
-            print(f"not every member came up: {supervisor.status()}", flush=True)
+        serving.start()
         for name, url, action in [
-                ("ShowStopper", f"http://127.0.0.1:{port + 10}", {"clock": "lap"}),
-                ("carlos", f"http://127.0.0.1:{port + 20}", {"turn": "front"}),
-                ("joe", f"http://127.0.0.1:{port + 31}", None)]:
+                ("ShowStopper", f"http://127.0.0.1:{at['showstopper']}", {"clock": "lap"}),
+                ("carlos", f"http://127.0.0.1:{at['carlos']}", {"turn": "front"}),
+                ("joe", f"http://127.0.0.1:{at['joe api']}", None)]:
             report = conformance.check(url, action)
             checks.append({"what": f"{name}, served alone", "url": url, "status": report.status,
                            "verdict": "conforms" if report.status == 0 else "does not conform",
@@ -431,8 +433,10 @@ def main() -> int:
                        "verdict": "conforms" if report.status == 0 else "does not conform",
                        "failed": "; ".join(f.what for f in report.findings if not f.ok)})
         for check in checks:
-            print(f"  hearth check {check['what']}: {check['verdict']} {check['failed']}", flush=True)
-        print(f"ready: open {base}/demo   (Ctrl+C stops everything)", flush=True)
+            print(f"  hearth check {check['what']}: {check['verdict']} {check['failed']}",
+                  flush=True)
+        print(f"ready: open http://127.0.0.1:{at['panel']}/   (Ctrl+C stops everything)",
+              flush=True)
         while serving.is_alive():
             time.sleep(0.5)
     except KeyboardInterrupt:
@@ -440,10 +444,6 @@ def main() -> int:
     finally:
         server.should_exit = True
         supervisor.stop()
-        try:
-            the_hub.shutdown()
-        except Exception:  # noqa: BLE001, S110 -- stopping, whatever is left
-            pass
     return 0
 
 

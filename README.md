@@ -42,7 +42,10 @@ coordinates it, run by `uv run pytest` as doctests.
 one that stops on Companion's schedule. [`bench/hosting.py`](bench/hosting.py)
 measures what hosting costs and what it risks against serving alone;
 [`demo/proposal.py`](demo/proposal.py) runs the whole arrangement on one
-machine, ShowRunner as the hub, with a panel that says what to try.
+machine, every part as it runs at a show: ShowRunner by its own command, with
+its plugins installed beside it and found through its entry points, the
+members beside it, all kept running, and a panel of the demo's own that says
+what to try.
 
 FastAPI keeps an included router as one entry in `app.routes`, so code that
 lists an app's routes finds hearth's with `fastapi.routing.iter_route_contexts`.

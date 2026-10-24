@@ -118,7 +118,8 @@ def test_an_open_stream_does_not_hold_the_page_s_shutdown(clock):
 # --- inside ShowRunner ---------------------------------------------------------
 
 
-def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock, log=None):
+def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock, log=None,
+                 retry_cap=None):
     from hearth import showrunner as hosting
 
     def make(settings):
@@ -127,7 +128,7 @@ def hosted_clock(showrunner_hub, made=None, family="show-control", clock=Clock, 
         return clock()
 
     hosted = hosting.plugin(make, name="clock", family=family,
-                            log=log or (lambda text: None))
+                            log=log or (lambda text: None), retry_cap=retry_cap)
     showrunner_hub.register(hosted)
     api = FastAPI()
     for routes in showrunner_hub.hook.showrunner_get_routes():
@@ -229,12 +230,13 @@ def test_a_member_not_ready_for_one_reason_says_so_once_and_then_that_it_is_read
         showrunner_hub, monkeypatch):
     """A device missing all evening is one line in the hub's log, not one per try.
 
-    Mutation: the reason said at every try -- red here (four lines).
+    The plugin's own retry cap bounds the wait between tries. Mutations: the
+    reason said at every try (four lines), or the cap given ignored for
+    ``RETRY_CAP`` -- each red here.
     """
     from hearth import showrunner as hosting
 
     monkeypatch.setattr(hosting, "RETRY_FIRST", 0.02)
-    monkeypatch.setattr(hosting, "RETRY_CAP", 0.02)
     tries, said = [], []
 
     class Late(Clock):
@@ -245,7 +247,7 @@ def test_a_member_not_ready_for_one_reason_says_so_once_and_then_that_it_is_read
             if len(tries) < 5:
                 raise OSError("the Launchkey is busy")
 
-    hosted, _ = hosted_clock(showrunner_hub, clock=Late, log=said.append)
+    hosted, _ = hosted_clock(showrunner_hub, clock=Late, log=said.append, retry_cap=0.02)
     showrunner_hub.hook.showrunner_startup(app=testing.hub_app(showrunner_hub))
     deadline = time.monotonic() + 5
     while hosted.member is None and time.monotonic() < deadline:

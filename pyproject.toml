@@ -33,7 +33,7 @@ module-name = "hearth"
 # The walkthrough's pages are run as doctests by the ordinary test command.
 testpaths = ["tests", "walkthrough"]
 addopts = "--doctest-glob=*.md"
-pythonpath = ["tests", "template"]
+pythonpath = ["tests", "template", "demo/plugins"]
 
 [tool.ruff]
 line-length = 100

@@ -54,9 +54,9 @@ reason.
 **A member that cannot start is not ready, and the hub runs on.** `make` or
 `start` raising -- a device not plugged in -- leaves the member's routes
 answering 503 saying why, and the coordinator audits a cue to it as an error. The
-start is tried again after 1, 2, 4… seconds up to `RETRY_CAP` (30), until it
-succeeds or the hub stops, so a device plugged in late is picked up without a
-restart. The reason is logged once, and again only when it changes; the try
+start is tried again after 1, 2, 4… seconds up to the plugin's `retry_cap`
+(`RETRY_CAP`, 30, when not given), until it succeeds or the hub stops, so a
+device plugged in late is picked up without a restart. The reason is logged once, and again only when it changes; the try
 that succeeds is logged too.
 
 Register it under the `showrunner` entry-point group. ShowRunner's loader

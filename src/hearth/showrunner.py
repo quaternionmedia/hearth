@@ -25,7 +25,8 @@ hearth does not assume it.
 
 **A member that cannot start is not ready, and the hub runs on.** Its routes
 answer 503 saying why, the hub audits cues to it as errors, and the start is
-tried again after 1, 2, 4… seconds, up to ``RETRY_CAP``, until it succeeds or
+tried again after 1, 2, 4… seconds, up to ``retry_cap`` (``RETRY_CAP`` when
+not given), until it succeeds or
 the hub stops -- a device plugged in late is picked up without a restart. A
 hub that cannot host the member at all (it predates the hooks, or it is of
 another family) is said so once, and the member is never started.
@@ -58,7 +59,8 @@ def _declared(pm, hook: str) -> bool:
 def plugin(make: Callable[[dict], Member], *, name: str, family: str,
            description: str = "", version: str = "0",
            pages: Callable[[Callable[[], Member | None]], Iterable[APIRouter]] | None = None,
-           log: Callable[[str], None] | None = None) -> object:
+           log: Callable[[str], None] | None = None,
+           retry_cap: float | None = None) -> object:
     """A ShowRunner plugin hosting the member ``make`` returns."""
     import showrunner
 
@@ -114,10 +116,11 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
                     member = make(self._settings)
                     member.start()
                 except Exception as exc:  # noqa: BLE001 -- not ready, never the hub's failure
-                    wait = min(RETRY_FIRST * 2 ** (self.tries - 1), RETRY_CAP)
+                    cap = RETRY_CAP if retry_cap is None else retry_cap
+                    wait = min(RETRY_FIRST * 2 ** (self.tries - 1), cap)
                     reason = f"{name} is not ready: {type(exc).__name__}: {exc}"
                     if not self.why.startswith(reason):  # said once, until the reason changes
-                        say(f"{reason}; trying again, at most every {RETRY_CAP:g}s")
+                        say(f"{reason}; trying again, at most every {cap:g}s")
                     self.why = f"{reason} (try {self.tries}; next in {wait:g}s)"
                     self._retry = threading.Timer(wait, self._try)
                     self._retry.daemon = True

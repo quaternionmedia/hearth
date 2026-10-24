@@ -1,0 +1,20 @@
+[project]
+name = "hearth-demo-plugins"
+version = "0"
+description = "The proposal demo's two hosted members, which ShowRunner loads through its entry points."
+requires-python = ">=3.10"
+dependencies = ["qm-hearth"]
+
+# ShowRunner's loader finds these as it finds any plugin installed beside it,
+# and registers each under its name here, which `[plugins] disabled` matches.
+[project.entry-points.showrunner]
+metronome = "hearth_demo.hosted:metronome"
+rack = "hearth_demo.hosted:rack"
+
+[build-system]
+requires = ["uv_build>=0.8,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "hearth_demo"
+module-root = ""
