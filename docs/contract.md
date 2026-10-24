@@ -60,8 +60,12 @@ is sent the newest state, never a backlog.
 
 ## A hub's routes
 
+A hub is a coordinator running in its exemplar's app
+([`coordinator.md`](coordinator.md)); `hearth check --hub URL` asks these.
+
 | Route | Answer |
 |---|---|
+| `GET /family/identity` | `{"hub", "family", "contract": "family/1", "version", "instance", "pid"}` |
 | `GET /family/` | each member, how it is reached (`push`, `pull` or `local`), and every recent delivery's outcome: status, error, milliseconds from the fire to the answer |
 | `GET /family/members/<name>` | for a pull member: `{"cue", "action"}`, the last cue that named it |
 | `GET /family/members/<name>/events` | the same, as a `text/event-stream` of `action` events |

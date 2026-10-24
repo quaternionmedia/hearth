@@ -40,9 +40,9 @@ the other case.
 
 The plugin answers ShowRunner's hooks: `showrunner_register`,
 `showrunner_startup`, `showrunner_shutdown`, `showrunner_get_routes`,
-`showrunner_get_nav` and `showrunner_family_members`. The last hands
-ShowFamily the member's `receive`, found at each call, so ShowFamily delivers
-a cue by a call and audits it as `via: "local"`. A URL for the same name in
+`showrunner_get_nav` and `showrunner_family_members`. The last hands the
+hub's coordinator the member's `receive`, found at each call, so the
+coordinator delivers a cue by a call and audits it as `via: "local"`. A URL for the same name in
 `[plugins.family.members]` wins over the hosted member.
 
 At the hub's startup the plugin first asks what the hub is. It hosts nothing,
@@ -53,7 +53,7 @@ reason.
 
 **A member that cannot start is not ready, and the hub runs on.** `make` or
 `start` raising -- a device not plugged in -- leaves the member's routes
-answering 503 saying why, and ShowFamily audits a cue to it as an error. The
+answering 503 saying why, and the coordinator audits a cue to it as an error. The
 start is tried again after 1, 2, 4… seconds up to `RETRY_CAP` (30), until it
 succeeds or the hub stops, so a device plugged in late is picked up without a
 restart. The reason is logged once, and again only when it changes; the try
@@ -88,7 +88,7 @@ disabled` matches.
   configuration.
 
 hearth's plugin does the first and the last, and catches a failure of its own
-member's start. ShowFamily records each delivery's failure against its member.
+member's start. The coordinator records each delivery's failure against its member.
 A failure in another plugin's startup, and importing only what is enabled,
 are the hub's.
 
@@ -116,8 +116,8 @@ supervisor.wait_up(60)
 ```
 
 Each restart is a new instance, and the hub knows it: every answer to a cue
-names the instance that took it, and ShowFamily credits the delivery to that
-instance.
+names the instance that took it, and the coordinator credits the delivery to
+that instance.
 
 ## Following from a page
 
