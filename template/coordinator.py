@@ -1,20 +1,21 @@
 """A family's coordinator: whatever fires, delivered to the members its family block names.
 
 **Origin.** hearth's coordinator template, ``template/coordinator.py``, for
-the family contract ``family/1``. In hearth this file is the template; anywhere
-else it is a copy, and the app it was copied into owns it. It imports nothing
-of hearth, so neither does a copy: an exemplar forks the template, changes
-what it needs to, and keeps the contract, which ``hearth check --hub URL``
-judges from outside. A change to the template reaches a copy only when the
-copy's owner carries it in, diffing first, since the owner may have changed
-what it owns. A copy records where it came from on the line below.
+the family contract ``family/1``. An exemplar copies this file whole and puts
+what is its own, what fires and where the coordinator runs, in a module beside
+it that imports it. It imports nothing of hearth, so neither does the
+exemplar. ``hearth fork PATH`` makes the copy and later takes a newer template
+into it; ``hearth check --copy PATH`` says whether it is still the template at
+the revision named below; ``hearth check --hub URL`` judges the running
+exemplar. What an exemplar needs changed here is changed in the template, so
+every exemplar can take it.
 
 Copied from: this is the template.
 
 A **coordinator** holds a family's members and, whenever something fires,
 hands each member the part of the family block that names it. It is the other
-side of the contract every member keeps (``docs/contract.md``), and it reaches
-a member one of three ways:
+side of the contract every member keeps (hearth's ``docs/contract.md``), and
+it reaches a member one of three ways:
 
 * **push**: ``POST <base>/family/cue`` with
   ``{"cue": {"number", "name", "fired_at"}, "action": {...}}``;
@@ -40,9 +41,8 @@ instance the member's own answer names.
 here knows a cue list, a beat or a scene. An exemplar decides when something
 fires, finds its family block, names it with a ``cue`` (the contract's word for
 whatever fired), and serves ``router`` in its own app with ``identity`` saying
-what it is. ShowRunner is the first exemplar, and the template was cut from
-its family plugin: there a cue fires, the cue's ``actions`` carry the block,
-and the coordinator is a pluggy plugin.
+what it is. In ShowRunner a cue fires, the cue's ``actions`` carry the block,
+and its family plugin, the module beside the copy, is a pluggy plugin.
 
 Delivery runs on worker threads, never on the event loop: one queue per push or
 local member, so its blocks arrive in the order they fired. Each push member has
@@ -116,7 +116,7 @@ class Coordinator:
     that read their action. A URL wins over a local member of the same name,
     and either wins over a pull. ``table`` is where the exemplar's settings name
     them, so a message says where to look; ``log`` is the exemplar's logger for
-    warnings, the standard library's ``hearth`` logger when not given.
+    warnings, this module's standard-library logger when not given.
     """
 
     def __init__(
@@ -135,7 +135,7 @@ class Coordinator:
         self.pull = [name for name in pull if name not in self.members and name not in self.local]
         self.timeout = float(timeout)
         self.table = table
-        self._say = log or logging.getLogger("hearth").warning
+        self._say = log or logging.getLogger(__name__).warning
         self._lock = threading.Lock()
         self._waiting: dict[str, dict] = {name: {"cue": None, "action": None} for name in self.pull}
         self._readers: dict[str, list[Callable[[], None]]] = {name: [] for name in self.pull}
@@ -329,7 +329,7 @@ def from_table(settings: dict | None, local: dict[str, Receive] | None = None, *
     The table is ``{"members": {name: url}, "pull": [name], "timeout": seconds}``,
     each optional. A malformed entry is said and skipped, never fatal.
     """
-    say = log or logging.getLogger("hearth").warning
+    say = log or logging.getLogger(__name__).warning
     named = f"{table[:-1]}.members]" if table.startswith("[") and table.endswith("]") \
         else f"{table}.members"
     settings = settings or {}

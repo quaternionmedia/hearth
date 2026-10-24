@@ -3,15 +3,15 @@
 A coordinator delivers each fire's family block to the members it names, and
 keeps what each answered. hearth holds it as a template,
 [`template/coordinator.py`](../template/coordinator.py), outside the package.
-An app that coordinates a family, an **exemplar**, copies it into its own code
-and owns the copy. The template imports nothing of hearth, so neither does a
-copy, and `hearth check --hub URL` holds every copy to the contract from
-outside.
+An app that coordinates a family, an **exemplar**, runs the template: it copies
+the file whole, and writes what is its own in a module beside the copy. The
+template imports nothing of hearth, so neither does the exemplar.
 
-This is the split the corpus keeps for itself: a project owns its copies of
-the seed, and the checks run in place. A change to the template reaches a copy
-only when its owner carries it in; a fix to the check reaches every copy the
-next time it runs.
+The template is where the coordinator changes. A copy is the template at the
+revision its `Copied from:` line names, byte for byte but for that line, so
+two facts about it are mechanical: whether it is still the template, and
+whether the template has changed since. `hearth check --copy PATH` states
+both; `hearth check --hub URL` judges the running exemplar from outside.
 
 ## What an exemplar supplies
 
@@ -19,22 +19,27 @@ next time it runs.
 |---|---|---|
 | What fires, and when | a cue: the programmer's GO, or any path that announces `cue.fired` | the downbeat of a bar, at `POST /beat` |
 | Where the block is | the cue's `actions["family"]` | its own |
-| Where the coordinator runs | ShowFamily, a pluggy plugin; its table is `[plugins.family]` | a FastAPI app; its table is `[looper.family]` |
+| Where the coordinator runs | ShowFamily, a pluggy plugin in `plugins/family.py`, beside its copy in `plugins/coordinator.py`; its table is `[plugins.family]` | a FastAPI app; its table is `[looper.family]` |
 | The members in its own process | members of `show-control`, from `showrunner_family_members` | none |
 | What it is | `showrunner`, of `show-control` | `looper`, of `instruments` |
 
-ShowRunner's copy came first: the template was cut from its family plugin,
-with what fires and where it runs left open, and ShowRunner keeps its own.
-
 ## Forking it
 
-1. Copy `template/coordinator.py` into the exemplar, under any name.
-2. Set its `Copied from:` line to the hearth revision it came from.
-3. Make the coordinator from the exemplar's settings, serve its routes in the
-   exemplar's app, fire it when something fires, and close it at the app's
-   stop:
+1. From hearth's checkout, write the template into the exemplar:
+
+   ```bash
+   uv run hearth fork <exemplar>/coordinator.py
+   ```
+
+   The copy is the template as committed at hearth's `HEAD`, its
+   `Copied from:` line naming that revision.
+2. In a module of the exemplar's own, make the coordinator from the
+   exemplar's settings, serve its routes in the exemplar's app, fire it when
+   something fires, and close it at the app's stop:
 
    ```python
+   from . import coordinator
+
    running = coordinator.from_table(settings, local=hosted, table="[plugins.family]")
    app.include_router(coordinator.router(
        lambda: running, lambda: coordinator.identity("showrunner", "show-control", version),
@@ -43,15 +48,15 @@ with what fires and where it runs left open, and ShowRunner keeps its own.
    running.fire({"number": "3", "name": "Second tune", "fired_at": fired_at}, block)
    ```
 
-4. Run `hearth check --hub URL` against the running exemplar, from hearth's
-   own environment or, once hearth is published, with
-   `uvx --from qm-hearth hearth check --hub URL`.
+3. Run `hearth check --hub URL` against the running exemplar, and
+   `hearth check --copy <exemplar>/coordinator.py` against its tree.
 
-To take a later change to the template, diff the copy against the revision
-its `Copied from:` line names, carry in what the exemplar wants, and move the
-line. A copy is never overwritten whole, since its owner may have changed
-what it owns. Nothing reports a copy that has fallen behind; the check reports
-one that breaks the contract.
+To take a later template, run `hearth fork` on the copy again. It writes the
+newer template over a copy that is still the template at its revision, and
+refuses one that is not, showing the lines that differ, since writing over it
+would lose them. A change the exemplar needs in its copy is offered to the
+template instead, so the copy stays the template and every exemplar can take
+the change.
 
 ## What it does
 
@@ -73,5 +78,5 @@ one that breaks the contract.
 - **A malformed settings entry is skipped and said** in the exemplar's own
   table's words, through the exemplar's logger.
 
-The template's tests are hearth's, and import it where it stands. A copy's
-tests are its exemplar's.
+The template's tests are hearth's, and import it where it stands. An
+exemplar's tests hold what it supplies, and the copy with it.

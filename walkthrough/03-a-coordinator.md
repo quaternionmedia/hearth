@@ -4,8 +4,8 @@
 
 A coordinator is the other side of the contract: something fires, and it hands
 each member the part of the family block that names it. hearth holds it as a
-template, `template/coordinator.py`, which an exemplar copies into its own
-code and owns; this page imports it where it stands, as hearth's tests do. It
+template, `template/coordinator.py`, which an exemplar copies whole and runs
+beside its own code; this page imports it where it stands, as hearth's tests do. It
 is an exemplar at its smallest, a looper whose downbeat is what fires, with a
 clock hosted in its process and a page that reads its action, and shows what
 the coordinator keeps.

@@ -17,12 +17,13 @@ hearth holds four things:
 |---|---|---|
 | **The contract and its check** | `family/1`, both sides; `hearth check URL` judges a member and `hearth check --hub URL` a coordinator, by their routes alone | [`docs/contract.md`](docs/contract.md) |
 | **The member library** | `hearth.Member`, which says what an action changes and what its state is; the hosts that serve one alone, beside an aiohttp page, or inside ShowRunner; `hearth.supervise`, which keeps one running; `follow.js`, which a page follows one with; `hearth.testing` | [`docs/hosting.md`](docs/hosting.md) |
-| **The coordinator template** | [`template/coordinator.py`](template/coordinator.py), which an app that coordinates a family copies and owns; it imports nothing of hearth, so the app depends on nothing of hearth | [`docs/coordinator.md`](docs/coordinator.md) |
+| **The coordinator template** | [`template/coordinator.py`](template/coordinator.py), which an app that coordinates a family copies whole and runs; `hearth fork` makes and updates the copy, and `hearth check --copy` says whether it is still the template | [`docs/coordinator.md`](docs/coordinator.md) |
 | **The demo** | the whole arrangement on one machine, ShowRunner as the hub, every part run as it runs at a show | [`docs/demo.md`](docs/demo.md) |
 
-A member depends on hearth. A coordinator copies the template. ShowRunner's
-family plugin is the copy the template was cut from, and ShowRunner imports
-nothing of hearth.
+A member runs hearth's library. A coordinator runs hearth's template, copied
+whole into the app beside the app's own code, so the app depends on nothing of
+hearth. ShowRunner is the example: its family plugin is its own, and the
+coordinator under it is the template at a named revision.
 
 ## Start here
 
@@ -31,7 +32,8 @@ nothing of hearth.
   [`walkthrough/02-three-hosts.md`](walkthrough/02-three-hosts.md).
 - **Coordinate a family:**
   [`walkthrough/03-a-coordinator.md`](walkthrough/03-a-coordinator.md), then
-  copy the template as [`docs/coordinator.md`](docs/coordinator.md) says.
+  `hearth fork` the template into the app as
+  [`docs/coordinator.md`](docs/coordinator.md) says.
 - **See it all run:** `uv run python demo/proposal.py --dev <dev>`, then open
   `http://127.0.0.1:18701/`.
 
@@ -42,6 +44,7 @@ uv sync
 uv run pytest
 uv run hearth check http://127.0.0.1:18410 --action '{"clock": "lap"}'
 uv run hearth check --hub http://127.0.0.1:18700 --pull leo
+uv run hearth check --copy <ShowRunner>/src/showrunner/plugins/coordinator.py
 ```
 
 [`bench/hosting.py`](bench/hosting.py) measures what hosting a member in the

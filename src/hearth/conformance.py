@@ -10,7 +10,9 @@ carries the cue to a follower. That second figure is what a person watching a
 page waits for.
 
 ``hearth check --hub URL [--pull NAME]`` asks a hub's side instead: what the hub
-is, its audit, and a pull member's routes and stream.
+is, its audit, and a pull member's routes and stream. ``hearth check --copy
+PATH`` asks whether an exemplar's coordinator is still hearth's template, and
+``hearth fork PATH`` makes or updates one (``hearth.copies``).
 
 Exit 0: every finding passed. 1: one failed. 3: nothing answered, so the check
 could not say.
@@ -28,6 +30,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
+from . import copies
 from .member import CONTRACT
 
 CANNOT_SAY = 3
@@ -267,15 +270,33 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="hearth", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     asked = sub.add_parser("check", help="check the member answering at URL against the contract")
-    asked.add_argument("url")
+    asked.add_argument("url", help="the member's URL; with --hub a coordinator's, with --copy a "
+                                   "copy's path")
     asked.add_argument("--action", type=json.loads, default=None,
                        help='one real action to send and time, as JSON: \'{"clock": "lap"}\'')
     asked.add_argument("--hub", action="store_true",
                        help="URL is a hub: check the hub's side of the contract")
     asked.add_argument("--pull", default=None,
                        help="with --hub, a pull member in the hub's table to check the routes of")
+    asked.add_argument("--copy", action="store_true",
+                       help="URL is the path of an exemplar's copy of the coordinator template: "
+                            "say whether it is still the template")
     asked.add_argument("--timeout", type=float, default=5.0)
+    forked = sub.add_parser("fork", help="write hearth's coordinator template to PATH, or take "
+                                         "the newest template into the copy there")
+    forked.add_argument("path")
     args = parser.parse_args(argv)
+    if args.command == "fork" or args.copy:
+        found = copies.fork(args.path) if args.command == "fork" else copies.check(args.url)
+        print(f"hearth {'fork' if args.command == 'fork' else 'check --copy'} {found.path}")
+        print(f"  {found.said}")
+        for line in found.since:
+            print(f"    since: {line}")
+        for line in found.changed[:60]:
+            print(f"    {line}")
+        if len(found.changed) > 60:
+            print(f"    ... {len(found.changed) - 60} more lines")
+        return found.status
     report = (check_hub(args.url, args.pull, args.timeout) if args.hub
               else check(args.url, args.action, args.timeout))
     print(f"hearth check {report.url}")

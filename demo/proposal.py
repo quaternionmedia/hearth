@@ -27,11 +27,12 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
-from hearth import conformance
+from hearth import conformance, copies
 from hearth.supervise import Spec, Supervisor, _kill_tree
 
 HEARTH = Path(__file__).resolve().parents[1]
 PLUGINS = HEARTH / "demo" / "plugins"  # the metronome and the rack, as an installable package
+COPY = "src/showrunner/plugins/coordinator.py"  # the hub's copy of the template
 MARK = ".hearth-proposal"  # a --work directory this demo made, and may empty again
 # What a member's process is started without: the shell's own environment, which
 # would point uv at another project's.
@@ -403,6 +404,10 @@ def main() -> int:
         checks.append({"what": "the hub", "url": base, "status": report.status,
                        "verdict": "conforms" if report.status == 0 else "does not conform",
                        "failed": "; ".join(f.what for f in report.findings if not f.ok)})
+        copy = copies.check(dev / "ShowRunner" / COPY)
+        checks.append({"what": "the hub's coordinator", "url": COPY, "status": copy.status,
+                       "verdict": "is the template" if copy.status == 0 else "is not the template",
+                       "failed": copy.said})
         for check in checks:
             print(f"  hearth check {check['what']}: {check['verdict']} {check['failed']}",
                   flush=True)

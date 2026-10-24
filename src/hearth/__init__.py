@@ -2,8 +2,10 @@
 
 A coordinator delivers each fire's family block to the members it names and
 keeps every outcome. hearth holds it as a template, ``template/coordinator.py``
-outside this package, which an exemplar copies and owns: what fires, and where
-it runs, are the exemplar's, and ShowRunner is the first.
+outside this package, which an exemplar copies whole and runs beside its own
+code: what fires, and where it runs, are the exemplar's. ``hearth fork`` makes
+and updates the copy, and ``hearth check --copy`` says whether it is still the
+template.
 
 A member says what an action changes and what its state is (``Member``). Every
 host serves it the same four routes: alone on its own port (``hearth.web.app``),
