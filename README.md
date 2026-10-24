@@ -1,58 +1,48 @@
 # hearth
 
-The coordinator of a qm family, and the contract its members keep.
+The contract a qm family's members keep, and what holds them to it.
 
 Distributed as `qm-hearth`, imported as `hearth`: the name `hearth` on PyPI is
 another project's.
 
-A family's members are separate apps. A **coordinator** is what they gather
-round: something fires, and the coordinator hands each member its part of the
-fire's family block, keeps every outcome, and credits each to the instance
-that answered. hearth holds that coordinator as a **template** with two things
-left open. What fires, and where the coordinator runs, belong to an
-**exemplar**, which copies the template into its own code and owns the copy,
-so it depends on nothing of hearth. ShowRunner is the first exemplar, and the
-template was cut from its ShowFamily plugin: a cue fires, and the cue's actions
-carry the block.
+A family's members are separate apps. Something fires (a cue in ShowRunner, a
+downbeat in a looper) and a **coordinator** hands each member its part of the
+fire's family block, then keeps what each answered. The wire between them is
+`family/1`: four routes on every member and three on the coordinator, plain
+HTTP, JSON and server-sent events, in any language.
 
-| Side | What hearth gives | Read |
+hearth holds four things:
+
+| | What | Read |
 |---|---|---|
-| The coordinator template | [`template/coordinator.py`](template/coordinator.py), copied by an exemplar, never imported: each member pushed to, called in-process or pulled; a client and a queue per member; every outcome; the `/family/*` routes a hub serves | [`docs/coordinator.md`](docs/coordinator.md) |
-| A member | `hearth.Member`: the envelope, the refusal, the record of the last cue, its followers; the four routes every member answers | [`docs/contract.md`](docs/contract.md) |
-| Hosting a member | served alone, beside an aiohttp page, or inside its hub when the two share a family | [`docs/hosting.md`](docs/hosting.md) |
-| The check | `hearth check URL` judges a member, `hearth check --hub URL` a coordinator, in any language, by the routes alone; it runs in place, from outside what it judges | `hearth.conformance` |
+| **The contract and its check** | `family/1`, both sides; `hearth check URL` judges a member and `hearth check --hub URL` a coordinator, by their routes alone | [`docs/contract.md`](docs/contract.md) |
+| **The member library** | `hearth.Member`, which says what an action changes and what its state is; the hosts that serve one alone, beside an aiohttp page, or inside ShowRunner; `hearth.supervise`, which keeps one running; `follow.js`, which a page follows one with; `hearth.testing` | [`docs/hosting.md`](docs/hosting.md) |
+| **The coordinator template** | [`template/coordinator.py`](template/coordinator.py), which an app that coordinates a family copies and owns; it imports nothing of hearth, so the app depends on nothing of hearth | [`docs/coordinator.md`](docs/coordinator.md) |
+| **The demo** | the whole arrangement on one machine, ShowRunner as the hub, every part run as it runs at a show | [`docs/demo.md`](docs/demo.md) |
 
-A member is served by whichever host fits it:
+A member depends on hearth. A coordinator copies the template. ShowRunner's
+family plugin is the copy the template was cut from, and ShowRunner imports
+nothing of hearth.
 
-| Host | How | When |
-|---|---|---|
-| Alone | `hearth.web.app(member)`, any ASGI server | Always available; the only way across families |
-| Beside an aiohttp page | `hearth.aio.attach(app, member)` | ShowStopper, whose page is textual-serve |
-| Inside ShowRunner | `hearth.showrunner.plugin(make, name=..., family=...)` under the `showrunner` entry point | Only for a member of the hub's own family |
+## Start here
 
-`--action '{"clock": "lap"}'` makes `hearth check` send one real cue and time
-it to the member's answer and to the event a follower receives. A page follows
-a member with [`src/hearth/static/follow.js`](src/hearth/static/follow.js): the
-event stream first, polling only while it is down.
+- **Write a member:** [`walkthrough/01-a-member.md`](walkthrough/01-a-member.md),
+  then serve it three ways in
+  [`walkthrough/02-three-hosts.md`](walkthrough/02-three-hosts.md).
+- **Coordinate a family:**
+  [`walkthrough/03-a-coordinator.md`](walkthrough/03-a-coordinator.md), then
+  copy the template as [`docs/coordinator.md`](docs/coordinator.md) says.
+- **See it all run:** `uv run python demo/proposal.py --dev <dev>`, then open
+  `http://127.0.0.1:18701/`.
 
-[`walkthrough/`](walkthrough/) builds a member, serves it three ways, and
-coordinates it, run by `uv run pytest` as doctests.
-
-`hearth.supervise` keeps members served alone running beside a hub, restarting
-one that stops on Companion's schedule. [`bench/hosting.py`](bench/hosting.py)
-measures what hosting costs and what it risks against serving alone;
-[`demo/proposal.py`](demo/proposal.py) runs the whole arrangement on one
-machine, every part as it runs at a show: ShowRunner by its own command, with
-its plugins installed beside it and found through its entry points, the
-members beside it, all kept running, and a panel of the demo's own that says
-what to try.
-
-FastAPI keeps an included router as one entry in `app.routes`, so code that
-lists an app's routes finds hearth's with `fastapi.routing.iter_route_contexts`.
+The walkthrough's pages run as doctests in the ordinary test command.
 
 ```bash
 uv sync
 uv run pytest
 uv run hearth check http://127.0.0.1:18410 --action '{"clock": "lap"}'
-uv run hearth check --hub http://127.0.0.1:18400 --pull leo
+uv run hearth check --hub http://127.0.0.1:18700 --pull leo
 ```
+
+[`bench/hosting.py`](bench/hosting.py) measures what hosting a member in the
+hub's process costs and what it risks, against serving it alone.

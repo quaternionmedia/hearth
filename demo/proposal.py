@@ -1,42 +1,13 @@
 """The proposal, running: ShowRunner as itself, its plugins installed beside it, members beside it.
 
-What `plans/plugin-or-server.md` in the corpus proposes, on one machine, with
-every part run the way it would run at a show:
-
-* **The hub** is ShowRunner, started by its own command, `sr start --config
-  <work>/hub/show.toml`, run by its module, `python -m showrunner.cli`, in a
-  process of its own and kept running by `hearth.supervise` like the members. This script imports nothing
-  of ShowRunner and changes nothing in it.
-* **Its plugins are installed beside it.** The hub's run adds hearth, this
-  demo's `plugins/` package and ShowStopper to ShowRunner's environment
-  (`uv run --with-editable`), and ShowRunner's loader finds them through the
-  `showrunner` entry points, as it finds any plugin. Its show.toml configures
-  them: `[plugins.family]` names the members, `[plugins.metronome]` the
-  metronome's device, and `[plugins] disabled` turns off ShowStopper's hosted
-  clock, since the clock runs beside the hub.
-* **An extension in the hub**: ShowStopper's clock extension adds a `clock`
-  layer type, a Clock layer and a ⏱ chip under each cue that drives the clock
-  in `/script`. It reads the hub's data and never talks to the clock.
-* **Members beside the hub**, each its own process: ShowStopper's clock,
-  carlos, joe (pushed to) and leo (which follows the hub's stream). Crash one
-  from the panel, or the hub itself, and watch it come back as a new instance.
-* **A member hosted in the hub**: a metronome whose MIDI device is missing at
-  startup. The hub runs on; the metronome is *not ready* and retried, and
-  becomes ready when its device is "plugged in" from the panel.
-* **The family border**: an instruments-family rack offered to the hub as a
-  hosted plugin is refused, and says why.
-* **The show** is made through the hub's own routes, and **the panel** is this
-  script's page, on the port above the hub's: it reads the hub and the members
-  over HTTP, and acts through the hub's routes and the supervisor.
-
-Run it from this checkout, with the member checkouts in `<dev>` on their
-family branches (ShowRunner, ShowStopper, carlos, joe, leo)::
+Every part runs as it runs at a show: ShowRunner by its own command with an
+ordinary show.toml, its extension and hosted members found through its entry
+points, each member in its own process, all of them supervised, and the show
+made through the hub's routes. This script imports nothing of ShowRunner and
+changes nothing in it. It serves its own page on the port above the hub's.
+``docs/demo.md`` says what runs and what to try::
 
     uv run python demo/proposal.py --dev <dev>
-
-Each run begins from nothing in a fresh `--work` directory. Open
-`http://127.0.0.1:18701/`; the panel says what to try. Ctrl+C stops everything
-it started.
 """
 
 from __future__ import annotations

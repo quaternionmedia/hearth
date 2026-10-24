@@ -1,68 +1,49 @@
 # Hosting a member
 
-A member answers [the contract](contract.md) the same way under every host.
-Which host serves it is a deployment choice. `walkthrough/02-three-hosts.md`
-runs all three against one check, and `demo/proposal.py` runs the family with
-ShowRunner as the hub.
-
-**Extend the hub in-process; act on a cue across the contract.** A part that
-adds to the hub's data and pages -- a layer type, a preview chip under a cue,
-a cue-list importer -- is a ShowRunner plugin on ShowRunner's own hooks, and
-hearth has nothing to say about it. A part that acts on a cue is a member, and
-this page is about where it runs. A member may ship both: ShowStopper's clock
-is a member, and `showstopper_clock` is a small extension that gives it a
-layer and a chip in the hub's script page. The two meet in the hub's data and
-the cue's family block, never in each other's code.
+A member answers [the contract](contract.md) the same way under every host;
+which host serves it is a deployment choice. A part that adds to the hub's own
+data and pages instead, such as a layer type or a chip under a cue, is a
+ShowRunner plugin on ShowRunner's hooks, and hearth has nothing to say about
+it.
 
 | Host | Call | Serves the routes at | Lifecycle |
 |---|---|---|---|
-| Alone | `hearth.web.app(member, routers=...)` | the server's root | `start`/`stop` on the ASGI lifespan |
-| Beside an aiohttp page | `hearth.aio.attach(app, member)` | the page's root | `start`/`stop` on the application's startup and cleanup; open streams end at shutdown |
+| Alone | `hearth.web.app(member, routers=...)` | the server's root | `start` and `stop` on the ASGI lifespan |
+| Beside an aiohttp page | `hearth.aio.attach(app, member)` | the page's root | `start` and `stop` on the application's startup and cleanup; open streams end at shutdown |
 | Inside ShowRunner | `hearth.showrunner.plugin(make, name=..., family=...)` | `<hub>/<name>` | made at the hub's startup from `[plugins.<name>]`, stopped at its shutdown |
 
 `hearth.web.router(member)` is the four routes alone, for a FastAPI app that
-already exists; `member` may be a callable returning the member, for an app
-that makes it after the routes are mounted. Until it does, they answer 503.
+already exists. `member` may be a callable returning the member, for an app
+that makes it after the routes mount; until it does, they answer 503. FastAPI
+keeps an included router as one entry in `app.routes`, so code that lists an
+app's routes finds hearth's with `fastapi.routing.iter_route_contexts`.
+
+`walkthrough/02-three-hosts.md` runs all three hosts against one check.
 
 ## Which host, by family
 
 A hub hosts in its process only members of its own family. A member of
-another family is served alone and named to the hub by URL. `plugin` refuses
-the other case.
+another family is served alone and named to the hub by its URL, and `plugin`
+refuses the other case.
 
-| Family | Its hub | Hosting |
+| Family | Its coordinator | A member is |
 |---|---|---|
 | show-control | ShowRunner | alone, inside ShowRunner, or both |
-| instruments | none | alone, reached by URL |
+| instruments | none yet | alone, reached by URL |
 | performer-display | none | alone, reached by URL, or a page that follows the hub's stream |
+
+A member with a device or a native library is served alone whatever its
+family: a crash in either, a page that blocks the event loop, or a dependency
+the hub cannot share takes a hosted member's hub down with it, and no code can
+catch that. `bench/hosting.py` breaks a member each of these ways, hosted and
+alone.
 
 ## Inside ShowRunner
 
-The plugin answers ShowRunner's hooks: `showrunner_register`,
-`showrunner_startup`, `showrunner_shutdown`, `showrunner_get_routes`,
-`showrunner_get_nav` and `showrunner_family_members`. The last hands the
-hub's coordinator the member's `receive`, found at each call, so the
-coordinator delivers a cue by a call and audits it as `via: "local"`. A URL
-for the same name in `[plugins.family.members]` wins over the hosted member.
-
-At the hub's startup the plugin first asks what the hub is. It hosts nothing,
-and says why once, when the hub does not declare `showrunner_hub_identity`
-and `showrunner_family_members`, or when the hub's identity names another
-family than the member's. Either way the member's routes answer 503 with the
-reason.
-
-**A member that cannot start is not ready, and the hub runs on.** `make` or
-`start` raising -- a device not plugged in -- leaves the member's routes
-answering 503 saying why, and the coordinator audits a cue to it as an error. The
-start is tried again after 1, 2, 4… seconds up to the plugin's `retry_cap`
-(`RETRY_CAP`, 30, when not given), until it succeeds or the hub stops, so a
-device plugged in late is picked up without a restart. The reason is logged once, and again only when it changes; the try
-that succeeds is logged too.
-
-Register it under the `showrunner` entry-point group. ShowRunner's loader
-calls `ep.load()` and instantiates the result only when it is a class, so the
-entry point names a module attribute that **is** the plugin, made when that
-module is imported:
+Register the plugin under the `showrunner` entry-point group. ShowRunner's
+loader calls `ep.load()` and makes the result only when it is a class, so the
+entry point names a module attribute that **is** the plugin, made when its
+module is imported, and imported only by a hub loading its plugins:
 
 ```toml
 [project.entry-points.showrunner]
@@ -70,13 +51,27 @@ showstopper = "showstopper_hosted:plugin"
 ```
 
 ```python
-# showstopper_hosted.py -- imported only by a hub loading its plugins
+# showstopper_hosted.py
 import family
 plugin = family.showrunner_plugin()
 ```
 
-The plugin's `__name__` is the member's name, which is what `[plugins]
-disabled` matches.
+The plugin's `__name__` is the member's name, which `[plugins] disabled`
+matches, and its settings are the hub's `[plugins.<name>]` table.
+
+- **It asks what the hub is first.** It hosts nothing, and says why once, when
+  the hub does not declare `showrunner_hub_identity` and
+  `showrunner_family_members`, or names another family than the member's. The
+  member's routes then answer 503 with the reason.
+- **It hands the hub's coordinator the member's `receive`** through
+  `showrunner_family_members`, found at each call, so a cue is delivered by a
+  call and audited as `via: "local"`. A URL for the same name in
+  `[plugins.family.members]` wins over the hosted member.
+- **A member that cannot start is not ready, and the hub runs on.** `make` or
+  `start` raising, a device not plugged in, leaves its routes answering 503
+  saying why. The start is tried again after 1, 2, 4… seconds up to the
+  plugin's `retry_cap` (30 s when not given), until it succeeds or the hub
+  stops. The reason is logged once, and again only when it changes.
 
 ## What a hub owes a member it hosts
 
@@ -87,23 +82,17 @@ disabled` matches.
 - The member's own settings table, and nothing else of the hub's
   configuration.
 
-hearth's plugin does the first and the last, and catches a failure of its own
-member's start. The coordinator records each delivery's failure against its member.
-A failure in another plugin's startup, and importing only what is enabled,
-are the hub's.
-
-What no host can catch in code is a crash (a native library, `os._exit`), a
-page that blocks the event loop, or a dependency the hub cannot share: a
-hosted member takes the hub with it. `bench/hosting.py` breaks a member each
-of these ways, hosted and alone. A member with a device or a native library
-is served alone.
+hearth's plugin does the first and the last, and catches its own member's
+failure to start. The hub's coordinator records each delivery's failure
+against its member. Isolating every other plugin's startup, and importing
+only what is enabled, are the hub's.
 
 ## Beside the hub, kept running
 
 `hearth.supervise` starts members served alone, knows each is up when its
-`/family/identity` answers, and starts it again when it stops: 1 s after each
-of the first three stops, then doubling to 60 s, never giving up, as Bitfocus
-Companion restarts its modules.
+`/family/identity` answers, and starts one again when it stops: 1 s after each
+of its first three exits, then after a wait doubling to 60 s, never giving
+up, as Bitfocus Companion restarts its modules.
 
 ```python
 from hearth.supervise import Spec, Supervisor
@@ -115,20 +104,19 @@ supervisor.start()
 supervisor.wait_up(60)
 ```
 
-Each restart is a new instance, and the hub knows it: every answer to a cue
-names the instance that took it, and the coordinator credits the delivery to
-that instance.
+Each restart is a new instance, and every answer to a cue names the instance
+that took it, so the hub credits each delivery to the right one.
 
 ## Following from a page
 
-`src/hearth/static/follow.js` is a classic script. Vendor it beside the page and
-load it with a `<script>` tag, or import it for its effect from a bundle; both
-call `hearth.follow`:
+`src/hearth/static/follow.js` is a classic script. Vendor it beside the page
+and load it with a `<script>` tag, or import it for its effect from a bundle;
+both call `hearth.follow`:
 
 ```js
 const stop = hearth.follow({events: '/family/events', state: '/family/state'},
-                        snapshot => draw(snapshot),
-                        {onLink: link => badge(link)});  // 'stream' | 'polling' | 'down'
+                           snapshot => draw(snapshot),
+                           {onLink: link => badge(link)});  // 'stream' | 'polling' | 'down'
 ```
 
 It follows the stream, polls `state` only while the stream is down, and
@@ -138,7 +126,7 @@ snapshot alone: a page that missed an event draws the same thing at the next.
 ## Testing a member
 
 `hearth.testing` serves a member over a real socket and stands in for
-ShowRunner, so a member's tests hold it to the contract without copies of
+ShowRunner, so a member's tests hold it to the contract without a copy of
 either:
 
 ```python
