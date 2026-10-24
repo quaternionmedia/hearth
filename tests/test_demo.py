@@ -27,6 +27,7 @@ def test_every_cue_sits_on_a_line_of_the_script_and_names_only_the_demo_s_member
     for number, _name, _layer, line, block in demo.CUES:
         assert [text for text in lines if text.startswith(line)], f"cue {number}: {line!r}"
         assert set(block) <= members, f"cue {number} names {set(block) - members}"
+        assert demo.NOTES[number], f"cue {number} has no note for people"
 
 
 def test_the_metronome_is_not_ready_until_its_device_is_there(demo, tmp_path):

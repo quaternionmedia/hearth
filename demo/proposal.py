@@ -33,7 +33,6 @@ everything it started.
 from __future__ import annotations
 
 import argparse
-import json
 import shutil
 import sys
 import tempfile
@@ -72,6 +71,10 @@ Here comes the solo.
 
 The curtain falls.
 """
+
+# What a stage manager writes on each cue, for people; the family block is its actions.
+NOTES = {1: "When the house is settled", 2: "On the performer's nod", 3: "Band in on the downbeat",
+         4: "Hold for the solo", 5: "Slow fade with the curtain"}
 
 # (number, name, layer, the line it sits on, its family block)
 CUES = [
@@ -216,7 +219,7 @@ def seed(base: str) -> tuple[int, int]:
         session.refresh(cue_list)
         for number, name, layer, line, family in CUES:
             session.add(Cue(cue_list_id=cue_list.id, number=str(number), name=name, layer=layer,
-                            notes=json.dumps({"family": family}),
+                            notes=NOTES[number], actions={"family": family},
                             script_line=next(i for i, text in enumerate(lines, 1)
                                              if text.startswith(line)),
                             script_char=0))
