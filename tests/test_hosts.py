@@ -253,8 +253,8 @@ def test_a_member_not_ready_for_one_reason_says_so_once_and_then_that_it_is_read
     showrunner_hub.hook.showrunner_shutdown(app=None)
 
     assert said == [
-        "clock is not ready: OSError: no MIDI device called 'Launchkey'; "
-        "trying again, at most every 0.02s",
+        ("clock is not ready: OSError: no MIDI device called 'Launchkey'; "
+         "trying again, at most every 0.02s"),
         "clock is not ready: OSError: the Launchkey is busy; trying again, at most every 0.02s",
         "clock is ready, at try 5",
     ]
