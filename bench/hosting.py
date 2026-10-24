@@ -1,11 +1,11 @@
 """Plugin or server: one member hosted both ways, timed, and broken on purpose.
 
-The hub here is ShowRunner's own: its ShowFamily delivery engine
-(``showrunner.plugins.family.Family``) and, for startup, its ``ShowRunner`` app.
-So this runs in ShowRunner's environment with hearth importable::
+The hub here is ShowRunner's own: the coordinator its ShowFamily plugin holds
+(``hearth.coordinator.Coordinator``), its family routes, and, for startup, its
+``ShowRunner`` app. So this runs in ShowRunner's environment::
 
     cd <a ShowRunner checkout carrying the family stack>
-    PYTHONPATH=<hearth>/src uv run --no-sync python <hearth>/bench/hosting.py
+    uv run --no-sync python <hearth>/bench/hosting.py
 
 Everything binds 127.0.0.1 on ports the OS picks, and every process it starts,
 it stops. ``BENCH_N`` sets the cues per path (default 300).
@@ -35,6 +35,7 @@ from showrunner.plugins import family
 import hearth
 from hearth import showrunner as hosting
 from hearth import testing, web
+from hearth.coordinator import Coordinator
 
 N = int(os.environ.get("BENCH_N", "300"))
 LAP = {"clock": "lap"}
@@ -139,7 +140,7 @@ def latency() -> None:
     row("call, no hub (the floor)", times)
 
     member = Clock()
-    hub = family.Family(local={"clock": member.receive})
+    hub = Coordinator(local={"clock": member.receive})
     row("hub -> member hosted in the hub (local)",
         [timed(lambda n: hub.fire(cue(n), {"clock": LAP}), member.arrived, member.at, n)
          for n in range(N)])
@@ -147,7 +148,7 @@ def latency() -> None:
 
     member = Clock()
     with testing.serving(web.app(member)) as url:
-        hub = family.Family(members={"clock": url})
+        hub = Coordinator(members={"clock": url})
         row("hub -> member served alone (HTTP push)",
             [timed(lambda n: hub.fire(cue(n), {"clock": LAP}), member.arrived, member.at, n)
              for n in range(N)])
@@ -204,7 +205,7 @@ def fails_to_start() -> None:
                 pass
     print(f"  hosted in the hub: {hosted}")
 
-    hub = family.Family(members={"broken": "http://127.0.0.1:9"}, timeout=2)
+    hub = Coordinator(members={"broken": "http://127.0.0.1:9"}, timeout=2)
     hub.fire(cue(1), {"broken": LAP})
     hub.wait(10)
     said = hub.snapshot()["last"][0]
@@ -223,7 +224,7 @@ def slow_member() -> None:
             return lambda: time.sleep(2)
 
     slow, clock = Slow(), Clock()
-    hub = family.Family(local={"slow": slow.receive, "clock": clock.receive})
+    hub = Coordinator(local={"slow": slow.receive, "clock": clock.receive})
     clock.arrived.clear()
     t0 = time.perf_counter()
     hub.fire(cue(1), {"slow": LAP, "clock": LAP})
@@ -299,7 +300,7 @@ CRASHER = textwrap.dedent('''
 HOSTED_CRASH = textwrap.dedent('''
     import os, time
     import hearth
-    from showrunner.plugins import family
+    from hearth.coordinator import Coordinator
 
     class Crash(hearth.Member):
         name, family, verbs = "crash", "show-control", ("clock",)
@@ -308,7 +309,7 @@ HOSTED_CRASH = textwrap.dedent('''
         def state(self):
             return {}
 
-    hub = family.Family(local={"crash": Crash().receive})
+    hub = Coordinator(local={"crash": Crash().receive})
     hub.fire({"number": "1"}, {"crash": {"clock": "lap"}})
     time.sleep(2)
     print("the hub is still running")
@@ -339,7 +340,7 @@ def crashing_member() -> None:
                     break
                 except httpx.HTTPError:
                     time.sleep(0.1)
-            hub = family.Family(members={"crash": url}, timeout=3)
+            hub = Coordinator(members={"crash": url}, timeout=3)
             hub.fire(cue(1), {"crash": LAP})
             hub.wait(10)
             first = hub.snapshot()["last"][-1]

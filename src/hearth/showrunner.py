@@ -12,9 +12,10 @@ ShowRunner's ``showrunner`` entry-point group, and the hub:
   conformance check passes against ``<hub>/<name>`` as against its own port;
 * serves the member's own pages under ``/<name>``: ``pages(get)`` returns
   routers that find the member with ``get()``, since it is made after they mount;
-* hands ShowFamily the member's ``receive`` through ``showrunner_family_members``,
-  so a cue that names it is delivered by a call in the hub's process rather
-  than a request, and is audited at ``GET /family/`` as ``via: "local"``.
+* hands the hub's coordinator the member's ``receive`` through
+  ``showrunner_family_members``, so a cue that names it is delivered by a call
+  in the hub's process rather than a request, and is audited at
+  ``GET /family/`` as ``via: "local"``.
 
 **Only a member of the hub's own family is hosted this way.** A family's
 border is what its members drive, and two families meet across a protocol,
