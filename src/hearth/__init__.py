@@ -1,4 +1,4 @@
-"""hearth: the coordinator of a qm family, and the contract its members keep.
+"""hearth: a qm family's contract, the members' side of it, and the coordinator template.
 
 A coordinator delivers each fire's family block to the members it names and
 keeps every outcome. hearth holds it as a template, ``template/coordinator.py``

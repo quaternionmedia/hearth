@@ -32,7 +32,7 @@ from hearth.supervise import Spec, Supervisor, _kill_tree
 
 HEARTH = Path(__file__).resolve().parents[1]
 PLUGINS = HEARTH / "demo" / "plugins"  # the metronome and the rack, as an installable package
-COPY = "src/showrunner/plugins/coordinator.py"  # the hub's copy of the template
+COPY = "src/showrunner/plugins/family/coordinator.py"  # the hub's copy of the template
 MARK = ".hearth-proposal"  # a --work directory this demo made, and may empty again
 # What a member's process is started without: the shell's own environment, which
 # would point uv at another project's.
@@ -357,6 +357,14 @@ def panel_app(base: str, port: int, supervisor: Supervisor, device: Path, state:
     return panel
 
 
+def copy_row(dev: Path) -> dict:
+    """The panel's row for the hub's coordinator: whether ShowRunner's copy is still the template."""
+    copy = copies.check(dev / "ShowRunner" / COPY)
+    return {"what": "the hub's coordinator", "url": COPY, "status": copy.status,
+            "verdict": copy.said if copy.status == 0 else "is not the template",
+            "failed": "" if copy.status == 0 else copy.said}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--dev", type=Path, required=True,
@@ -404,10 +412,7 @@ def main() -> int:
         checks.append({"what": "the hub", "url": base, "status": report.status,
                        "verdict": "conforms" if report.status == 0 else "does not conform",
                        "failed": "; ".join(f.what for f in report.findings if not f.ok)})
-        copy = copies.check(dev / "ShowRunner" / COPY)
-        checks.append({"what": "the hub's coordinator", "url": COPY, "status": copy.status,
-                       "verdict": copy.said if copy.status == 0 else "is not the template",
-                       "failed": "" if copy.status == 0 else copy.said})
+        checks.append(copy_row(dev))
         for check in checks:
             print(f"  hearth check {check['what']}: {check['verdict']} {check['failed']}",
                   flush=True)

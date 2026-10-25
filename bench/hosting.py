@@ -1,7 +1,7 @@
 """Plugin or server: one member hosted both ways, timed, and broken on purpose.
 
 The hub here is ShowRunner's own: the coordinator it runs, its copy of hearth's
-template (``showrunner.plugins.coordinator``), the ShowFamily plugin that serves
+template (``showrunner.plugins.family.coordinator``), the ShowFamily plugin that serves
 it, and, for startup, its ``ShowRunner`` app.
 So this runs in ShowRunner's environment with hearth importable::
 
@@ -31,7 +31,8 @@ from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, FastAPI
-from showrunner.plugins import coordinator, family
+from showrunner.plugins import family
+from showrunner.plugins.family import coordinator
 
 import hearth
 from hearth import showrunner as hosting
@@ -300,7 +301,7 @@ CRASHER = textwrap.dedent('''
 HOSTED_CRASH = textwrap.dedent('''
     import os, time
     import hearth
-    from showrunner.plugins import coordinator
+    from showrunner.plugins.family import coordinator
 
     class Crash(hearth.Member):
         name, family, verbs = "crash", "show-control", ("clock",)

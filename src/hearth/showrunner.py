@@ -31,8 +31,8 @@ the hub stops -- a device plugged in late is picked up without a restart. A
 hub that cannot host the member at all (it predates the hooks, or it is of
 another family) is said so once, and the member is never started.
 
-ShowRunner is imported here and nowhere else in hearth, and only when a hub loads
-the plugin.
+ShowRunner is imported here and nowhere else in the package, and only when a hub
+loads the plugin.
 """
 
 from __future__ import annotations

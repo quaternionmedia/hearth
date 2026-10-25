@@ -44,7 +44,7 @@ uv sync
 uv run pytest
 uv run hearth check http://127.0.0.1:18410 --action '{"clock": "lap"}'
 uv run hearth check --hub http://127.0.0.1:18700 --pull leo
-uv run hearth check --copy <ShowRunner>/src/showrunner/plugins/coordinator.py
+uv run hearth check --copy <ShowRunner>/src/showrunner/plugins/family/coordinator.py
 ```
 
 [`bench/hosting.py`](bench/hosting.py) measures what hosting a member in the

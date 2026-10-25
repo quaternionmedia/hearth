@@ -36,7 +36,9 @@ the clock runs beside the hub. The show is made through the hub's own routes,
 and the panel reads the running parts over HTTP. Beside its checks of each
 member and of the hub, the panel says whether the hub's coordinator is still
 hearth's template (`hearth check --copy`). `tests/test_demo.py` fails if the
-demo imports ShowRunner, edits `sys.path` or sets an attribute on a module.
+demo imports ShowRunner, by name or otherwise, edits `sys.path` or sets an
+attribute on a module, or if what runs inside the hub, the demo's plugins and
+hearth's host, sets one.
 
 ## What to try
 
