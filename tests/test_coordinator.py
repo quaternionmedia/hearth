@@ -107,6 +107,13 @@ def test_the_template_imports_nothing_of_hearth_so_a_copy_needs_nothing_of_it():
     assert "Copied from: this is the template." in coordinator.__doc__
 
 
+def test_the_template_keeps_the_contract_hearth_s_members_keep():
+    """It cannot import hearth's name for the contract, so it states it, and is held to it here."""
+    import hearth
+
+    assert coordinator.CONTRACT == hearth.CONTRACT
+
+
 # --- push --------------------------------------------------------------------
 
 def test_a_push_member_is_sent_the_cue_and_its_action(fake_member, hub):

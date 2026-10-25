@@ -274,13 +274,14 @@ def main(argv: list[str] | None = None) -> int:
                                    "copy's path")
     asked.add_argument("--action", type=json.loads, default=None,
                        help='one real action to send and time, as JSON: \'{"clock": "lap"}\'')
-    asked.add_argument("--hub", action="store_true",
-                       help="URL is a hub: check the hub's side of the contract")
+    kind = asked.add_mutually_exclusive_group()
+    kind.add_argument("--hub", action="store_true",
+                      help="URL is a hub: check the hub's side of the contract")
+    kind.add_argument("--copy", action="store_true",
+                      help="URL is the path of an exemplar's copy of the coordinator template: "
+                           "say whether it is still the template")
     asked.add_argument("--pull", default=None,
                        help="with --hub, a pull member in the hub's table to check the routes of")
-    asked.add_argument("--copy", action="store_true",
-                       help="URL is the path of an exemplar's copy of the coordinator template: "
-                            "say whether it is still the template")
     asked.add_argument("--timeout", type=float, default=5.0)
     forked = sub.add_parser("fork", help="write hearth's coordinator template to PATH, or take "
                                          "the newest template into the copy there")
@@ -290,6 +291,8 @@ def main(argv: list[str] | None = None) -> int:
         found = copies.fork(args.path) if args.command == "fork" else copies.check(args.url)
         print(f"hearth {'fork' if args.command == 'fork' else 'check --copy'} {found.path}")
         print(f"  {found.said}")
+        if found.outside:
+            print("  fork it again from a checkout of hearth whose HEAD holds that revision")
         for line in found.since:
             print(f"    since: {line}")
         for line in found.changed[:60]:

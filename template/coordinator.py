@@ -5,10 +5,13 @@ the family contract ``family/1``. An exemplar copies this file whole and puts
 what is its own, what fires and where the coordinator runs, in a module beside
 it that imports it. It imports nothing of hearth, so neither does the
 exemplar. ``hearth fork PATH`` makes the copy and later takes a newer template
-into it; ``hearth check --copy PATH`` says whether it is still the template at
-the revision named below; ``hearth check --hub URL`` judges the running
-exemplar. What an exemplar needs changed here is changed in the template, so
-every exemplar can take it.
+into it. In the copy, the line below names the hearth revision it was taken at
+and the template's text there, by the first sixteen hex digits of its sha256,
+so the exemplar's own tests can show the copy unchanged with nothing of hearth
+installed; ``hearth check --copy PATH`` says so too, and whether the template
+has changed since, and ``hearth check --hub URL`` judges the running exemplar.
+What an exemplar needs changed here is changed in the template, so every
+exemplar can take it.
 
 Copied from: this is the template.
 
@@ -41,8 +44,7 @@ instance the member's own answer names.
 here knows a cue list, a beat or a scene. An exemplar decides when something
 fires, finds its family block, names it with a ``cue`` (the contract's word for
 whatever fired), and serves ``router`` in its own app with ``identity`` saying
-what it is. In ShowRunner a cue fires, the cue's ``actions`` carry the block,
-and its family plugin, the module beside the copy, is a pluggy plugin.
+what it is.
 
 Delivery runs on worker threads, never on the event loop: one queue per push or
 local member, so its blocks arrive in the order they fired. Each push member has
@@ -80,8 +82,8 @@ DEFAULT_TIMEOUT = 5.0  # seconds per delivery
 KEPT = 200  # outcomes listed at GET /family/, oldest dropped first
 TABLE = "[family]"  # where an exemplar's settings name the members, as its messages say
 
-# A pull member may read its action from a page in another origin (leo reads
-# from the browser), so the routes it reads are readable cross-origin.
+# A pull member may read its action from a page in another origin, a browser's,
+# so the routes it reads are readable cross-origin.
 OPEN = {"Access-Control-Allow-Origin": "*"}
 HEARTBEAT = 15.0  # seconds between keep-alive comments on a quiet stream
 LOOK = 1.0  # seconds between looks for a stream's reader having gone
@@ -211,7 +213,7 @@ class Coordinator:
             return known
         try:
             said = client.get(f"{base}/family/identity").json()
-        except Exception:  # noqa: BLE001 -- an old member, or a down one: the push says which
+        except Exception:  # an old member, or a down one: the push says which
             return None
         if isinstance(said, dict) and said.get("member"):
             with self._lock:
@@ -235,7 +237,7 @@ class Coordinator:
                 error = str(said) if said else response.text[:200]
         except httpx.TimeoutException as exc:
             error = f"no answer within {self.timeout:g}s ({type(exc).__name__})"
-        except Exception as exc:  # noqa: BLE001 -- down, refused, malformed: recorded, never raised
+        except Exception as exc:  # down, refused, malformed: recorded, never raised
             error = f"{type(exc).__name__}: {exc}"
         # The instance that took the cue, from its own answer when it says; a
         # member that restarted between two fires is never credited to the last one.
@@ -258,7 +260,7 @@ class Coordinator:
             if not 200 <= status < 300:
                 said = answer.get("error") if isinstance(answer, dict) else None
                 error = str(said) if said else f"answered {status}"
-        except Exception as exc:  # noqa: BLE001 -- a member's fault is recorded, never the hub's
+        except Exception as exc:  # a member's fault is recorded, never the hub's
             error = f"{type(exc).__name__}: {exc}"
         took = answer.get("instance") if isinstance(answer, dict) else None
         with self._lock:
