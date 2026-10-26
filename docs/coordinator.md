@@ -12,15 +12,22 @@ at the revision its `Copied from:` line names, whatever its line endings, and
 the line names that text too, by its digest:
 
 ```text
-Copied from: hearth e15792b6ba43, sha256 0f3c9a1d27b4e856.
+Copied from: hearth 1c12aaac62cf, sha256 daa4d36d4c5344f1.
 ```
 
-So two facts about a copy are mechanical. Whether it is still the template its
-line names, the copy shows by itself, and the exemplar's own tests say it with
-nothing of hearth installed. Whether the template has changed since,
-`hearth check --copy PATH` says from hearth's history. `hearth check --hub URL`
-judges the running exemplar from outside. The digest catches a change made by
-hand or by a formatter; it is not a signature.
+So three facts about a copy are mechanical, at three strengths:
+
+- **That it still agrees with its line,** the exemplar's own tests say with
+  nothing of hearth. It catches a change made by hand or by a formatter; the
+  digest is not a signature, and whoever changes the copy can change its line.
+- **That its text is one hearth's template has had,** `hearth check --copy PATH`
+  says from any hearth, a release included: `hearth.copies.KNOWN` lists every
+  digest the template has had, and a digest it does not know cannot be said.
+- **That it is the template at the revision it names, and how far the template
+  has moved since,** `hearth check --copy PATH` says from a checkout of hearth
+  with its history.
+
+`hearth check --hub URL` judges the running exemplar from outside.
 
 ## What an exemplar supplies
 
@@ -42,8 +49,9 @@ hand or by a formatter; it is not a signature.
 
    The copy is the template as committed at hearth's `HEAD`, its
    `Copied from:` line naming that revision and its text. Fork from a
-   revision a remote of hearth holds, since a copy is read against the
-   revision it names: `hearth fork` says when no remote holds `HEAD`.
+   revision a remote of hearth off this machine holds, since a copy is read
+   against the revision it names: `hearth fork` and `hearth check --copy` say
+   when none does.
 2. In a module of the exemplar's own, make the coordinator from the
    exemplar's settings, serve its routes in the exemplar's app, fire it when
    something fires, and close it at the app's stop:
@@ -59,35 +67,39 @@ hand or by a formatter; it is not a signature.
    running.fire({"number": "3", "name": "Second tune", "fired_at": fired_at}, block)
    ```
 
-3. In the exemplar's own tests, show that the copy is the template its line
-   names, so its own suite fails when the copy is changed, by hand or by a
-   formatter run over the tree:
+3. In the exemplar's own tests, show that the copy still agrees with its line,
+   so its own suite catches a change made by hand or by a formatter, and leave
+   the copy out of the formatter, for paths given to it by name too (ruff's
+   `force-exclude`, black's `force-exclude`):
 
    ```python
-   def test_the_coordinator_is_the_template_its_line_names():
+   def test_the_coordinator_is_the_template_its_copied_from_line_names():
        text = Path(coordinator.__file__).read_text(encoding="utf-8")
-       line = re.search(r"^Copied from: hearth [0-9a-f]+, sha256 ([0-9a-f]{16})\.$", text, re.M)
-       template = text.replace(line.group(0), "Copied from: this is the template.")
+       line = re.search(r"^Copied from: hearth [0-9a-f]{7,40}, sha256 ([0-9a-f]{16})\.$", text,
+                        re.MULTILINE)
+       template = text.replace(line.group(0), "Copied from: this is the template.", 1)
        assert hashlib.sha256(template.encode("utf-8")).hexdigest()[:16] == line.group(1)
    ```
 
 4. Run `hearth check --hub URL` against the running exemplar, and
-   `hearth check --copy <exemplar>/coordinator.py` against its tree.
+   `hearth check --copy <exemplar>/coordinator.py` against its tree. Neither
+   needs hearth in the exemplar's environment: each runs from hearth's own.
 
 To take a later template, run `hearth fork` on the copy again. It writes the
 newer template over a copy that is still the template at a revision hearth's
 `HEAD` descends from. It refuses a copy that is not the template, showing the
 lines that differ, since writing over it would lose them, and a copy taken at
 a revision `HEAD` does not descend from, since writing over it could take it
-back to an older template. A change the exemplar needs in its copy is offered
-to the template instead, so the copy stays the template and every exemplar can
-take the change.
+back to an older template. It takes a copy whose line is in its earlier form,
+with no digest, into the line as it is now. A change the exemplar needs in its
+copy is offered to the template instead, so the copy stays the template and
+every exemplar can take the change.
 
-`hearth check --copy` reads hearth's history from a checkout of hearth with all
-of it. From a release of hearth, or a shallow clone, it says from the digest
-alone whether the copy is the template its line names, and not whether the
-template has changed since. Its exit is 0 whenever the copy is the template it
-names; how far the template has moved since is said, not failed.
+`hearth check --copy` exits 0 when the copy is the template's text, 1 when it
+is not, and 3 when it cannot say: a digest this hearth does not know, from a
+newer hearth or from no template. How far the template has moved since is said,
+not failed. A commit that changes the template adds its digest to `KNOWN`, and
+hearth's tests are red until it does.
 
 ## What it does
 

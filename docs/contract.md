@@ -71,7 +71,9 @@ A hub is a coordinator running in its exemplar's app
 | `GET /family/members/<name>/events` | the same, as a `text/event-stream` of `action` events |
 
 A **push** member is sent `POST <url>/family/cue`. A **pull** member, a page
-with no server of its own, reads its action from the hub. A **local** member
+with no server of its own, reads its action from the hub; the first read
+after a fire is the delivery, whoever reads, so `hearth check --hub --pull`
+against a running show is a reader too. A **local** member
 is hosted in the hub's process and handed the cue by a call; it is still
 reachable at `<hub>/<name>/family/*`.
 

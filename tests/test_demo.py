@@ -41,9 +41,15 @@ def shims(path: Path, plugin: bool) -> list[str]:
     """What in a file would shim ShowRunner, by line.
 
     A plugin is loaded by ShowRunner and may import it, as every plugin does; the
-    demo's script may not, by name or otherwise. Neither adds to ``sys.path``,
-    sets or deletes anything on a module it imported, or calls what does so by
-    name (``setattr``, ``import_module``, ``exec``).
+    demo's script may not, by name or otherwise, and imports no ``importlib``.
+    Neither adds to ``sys.path``, sets or deletes anything on a module it
+    imported or on a name bound to one, or calls what does so by name
+    (``setattr``, ``import_module``, ``exec``, ``vars``).
+
+    A tripwire for the plain forms, not a proof: a method that changes what it
+    is called on (``.clear()``, ``.update()``) passes it, as does a change made
+    to a hook's arguments. The script holds no ShowRunner object to call one
+    on, since it reaches the hub over HTTP alone.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found, modules = [], set()
@@ -60,13 +66,21 @@ def shims(path: Path, plugin: bool) -> list[str]:
             names = []
         if not plugin and any(name.split(".")[0] == "showrunner" for name in names):
             found.append(f"{node.lineno}: imports ShowRunner")
+        if not plugin and any(name.split(".")[0] == "importlib" for name in names):
+            found.append(f"{node.lineno}: imports importlib")
         if isinstance(node, ast.Attribute) and node.attr == "path" \
                 and isinstance(node.value, ast.Name) and node.value.id == "sys":
             found.append(f"{node.lineno}: sys.path")
         if isinstance(node, ast.Call):
             called = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
-            if called in {"setattr", "delattr", "import_module", "__import__", "exec", "eval"}:
+            if called in {"setattr", "delattr", "import_module", "__import__", "exec", "eval",
+                          "vars", "globals"}:
                 found.append(f"{node.lineno}: {called}()")
+    bound = [node for node in ast.walk(tree) if isinstance(node, ast.Assign)
+             and isinstance(node.value, ast.Name)]
+    for _ in bound:  # a name bound to a module is the module: ``alias = family``
+        modules |= {target.id for node in bound if node.value.id in modules
+                    for target in node.targets if isinstance(target, ast.Name)}
     for node in ast.walk(tree):
         targets = (node.targets if isinstance(node, (ast.Assign, ast.Delete))
                    else [node.target] if isinstance(node, (ast.AugAssign, ast.AnnAssign)) else [])
@@ -83,9 +97,10 @@ def test_the_demo_runs_showrunner_and_neither_imports_nor_patches_it():
     """The hub is ShowRunner's own process: the script reaches it over HTTP only, and
     what runs inside it, the demo's plugins and hearth's host, patches nothing.
 
-    Mutations: ``import showrunner``, ``importlib.import_module("showrunner...")``,
-    ``from sys import path``, ``setattr`` on a module, or a module attribute set,
-    in the script or a plugin -- each red here.
+    Mutations: ``import showrunner``, ``importlib.import_module("showrunner...")``
+    under any name, ``from sys import path``, ``setattr`` or ``vars()`` on a
+    module, or a module attribute set, through an alias or not, in the script or
+    a plugin -- each red here.
     """
     inside = [*sorted(PLUGINS.rglob("*.py")), Path(hearth.__file__).parent / "showrunner.py"]
 
@@ -100,7 +115,10 @@ def test_the_panel_says_whether_the_hub_s_coordinator_is_still_the_template(demo
 
     copy = tmp_path / "ShowRunner" / demo.COPY
     copy.parent.mkdir(parents=True)
-    assert copies.fork(copy).status == 0
+    template = (demo.HEARTH / copies.TEMPLATE).read_text(encoding="utf-8")
+    head = (copies._git(demo.HEARTH, "rev-parse", "--short=12", "HEAD") or "").strip()
+    copy.write_text(template.replace(copies.ORIGIN, copies.LINE.format(
+        revision=head, digest=copies.digest(template))), encoding="utf-8")
 
     kept = demo.copy_row(tmp_path)
     copy.write_text(copy.read_text(encoding="utf-8") + "# changed\n", encoding="utf-8")
@@ -108,8 +126,8 @@ def test_the_panel_says_whether_the_hub_s_coordinator_is_still_the_template(demo
     copy.unlink()
     gone = demo.copy_row(tmp_path)
 
-    assert (kept["status"], kept["failed"]) == (0, "")
-    assert kept["verdict"].startswith("is the template at")
+    assert (kept["status"], kept["failed"]) == (0, ""), kept
+    assert kept["verdict"].startswith(("is the template at", "is a text hearth's template"))
     assert (changed["status"], changed["verdict"]) == (1, "is not the template")
     assert changed["failed"].startswith("differs from the template")
     assert (gone["status"], gone["verdict"]) == (1, "is not the template")

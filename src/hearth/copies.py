@@ -3,31 +3,36 @@
 An exemplar copies ``template/coordinator.py`` whole. The copy's ``Copied from:``
 line names the hearth revision it was taken at and the template's text there,
 by the first sixteen hex digits of its sha256, and every other line is the
-template at that revision. So whether a copy is still the template its line
-names is a fact the copy shows by itself, with nothing of hearth installed (an
-exemplar's own tests can say it), and whether the template has changed since is
-a fact hearth's history states:
+template at that revision. An exemplar's own tests, with nothing of hearth,
+can say that the copy still agrees with its line, which catches a change made
+by hand or by a formatter. Whether the text is one hearth's template has had,
+hearth says: ``KNOWN`` lists every digest the template has had, so a release
+of hearth judges a copy without the history. Whether the template has changed
+since is a fact hearth's history states:
 
 * ``hearth check --copy PATH`` says which a copy is: the template at its
   revision and the template now; the template at its revision, with the commits
   that changed the template since; or changed from the template, with the lines
-  that differ when hearth's history is there to show them. Without the history
-  (hearth installed from a release, or a shallow clone), it says from the digest
-  alone whether the copy is the template its line names.
+  that differ when hearth's history is there to show them. Without the history,
+  or without the revision the copy names (hearth installed from a release, a
+  shallow clone, a stale one), it says from the digest whether the copy is a
+  text the template has had, and cannot say for a digest it does not know.
 * ``hearth fork PATH`` writes the template as committed at hearth's ``HEAD`` to
   PATH, when PATH does not exist yet or is the template at a revision ``HEAD``
   descends from. It refuses a copy its owner has changed, since writing over it
   would lose that, and a copy taken at a revision ``HEAD`` does not descend
-  from, since writing over it could take it back to an older template. It says
-  when no remote of hearth holds ``HEAD``, since only that checkout can then
-  say what the copy names.
+  from, since writing over it could take it back to an older template. It
+  takes a copy whose line is in its earlier form, with no digest, into the
+  form it has now. Both say when no remote of hearth off this machine holds
+  the revision, since only this machine can then read what the copy names.
 
-The digest catches a change made by hand or by a formatter. It is not a
-signature: whoever can change the copy can change its line.
+The digest is not a signature: whoever can change the copy can change its
+line, and only ``KNOWN`` or the history says the text is the template's.
 
-Exit 0: the copy is the template its line names, whether or not the template has
-changed since. 1: it is not, it is not a copy, or ``fork`` would not write.
-3: ``fork`` has no checkout of hearth, with its history, to take the template from.
+Exit 0: the copy is the template's text, at the revision its line names when
+the history can say so, whether or not the template has changed since. 1: it is
+not, it is not a copy, or ``fork`` would not write. 3: it cannot be said here:
+a digest this hearth does not know, or no checkout with history to fork from.
 """
 
 from __future__ import annotations
@@ -45,6 +50,13 @@ ORIGIN = "Copied from: this is the template."
 LINE = "Copied from: hearth {revision}, sha256 {digest}."
 NAMED = re.compile(r"^Copied from: hearth ([0-9a-f]{7,40}), sha256 ([0-9a-f]{16})\.$",
                    re.MULTILINE)
+EARLIER = re.compile(r"^Copied from: hearth ([0-9a-f]{7,40})\.$", re.MULTILINE)  # no digest
+# A remote off this machine: one a copy's maintainer can read the revision from.
+OFF_MACHINE = re.compile(r"^(https?|ssh|git)://|^[\w.-]+@[\w.-]+:")
+# Every text the template has had since a copy's line named it by digest, oldest
+# first. A commit that changes the template adds its digest here, and a test is
+# red until it does, so a release of hearth knows every template up to its own.
+KNOWN = ("daa4d36d4c5344f1",)
 
 
 @dataclass
@@ -55,7 +67,7 @@ class Copy:
     revision: str | None = None
     current: bool = False  # the template at its revision, and the template now
     outside: bool = False  # its revision is not in the history of hearth's HEAD
-    published: bool = True  # a remote of hearth holds the revision fork wrote
+    published: bool = True  # a remote of hearth off this machine holds its revision
     since: list[str] = field(default_factory=list)  # the template's commits after the copy's
     changed: list[str] = field(default_factory=list)  # the copy against the template it names
 
@@ -88,6 +100,20 @@ def _history(root: Path | None) -> Path | None:
     return root if shallow is not None and shallow.strip() == "false" else None
 
 
+def _published(root: Path, revision: str) -> bool:
+    """Whether a remote of hearth off this machine holds ``revision``."""
+    for remote in (_git(root, "remote") or "").split():
+        url = (_git(root, "remote", "get-url", remote) or "").strip()
+        if OFF_MACHINE.match(url) and _git(root, "for-each-ref", "--contains", revision,
+                                           f"refs/remotes/{remote}"):
+            return True
+    return False
+
+
+def _unpublished(revision: str) -> str:
+    return f"; no remote of hearth off this machine holds {revision}, so only here can it be read"
+
+
 def _lines(text: str) -> list[str]:
     """The text's lines, with git's mark when no newline ends the last, so a diff shows it."""
     lines = text.split("\n")
@@ -95,33 +121,43 @@ def _lines(text: str) -> list[str]:
     return lines + [last, "\\ No newline at end of file"] if last else lines
 
 
-def check(path: str | Path, root: Path | None = None) -> Copy:
+def check(path: str | Path, root: Path | None = None,
+          known: tuple[str, ...] | None = None) -> Copy:
     """Whether the file at ``path`` is hearth's template at the revision it names."""
     path = Path(path)
+    known = KNOWN if known is None else known
     try:
         text = path.read_text(encoding="utf-8")  # a checkout's CRLF is read as LF
     except (OSError, UnicodeDecodeError) as exc:
         return Copy(path, 1, f"is no text file to read ({type(exc).__name__})")
-    named = NAMED.search(text)
+    named = NAMED.search(text) or EARLIER.search(text)
     if named is None:
         said = ("is the template itself" if ORIGIN in text else "names no hearth revision: "
                 f"it has no {LINE.format(revision='<revision>', digest='<digest>')!r} line")
         return Copy(path, 1, said)
-    revision, digested = named.groups()
+    revision, digested = named.group(1), (named.groups() + (None,))[1]
     template = text.replace(named.group(0), ORIGIN, 1)
     root = _history(checkout() if root is None else root)
-    if root is None:
+    full = (_git(root, "rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}") or ""
+            ).strip() if root else ""
+    then = _git(root, "show", f"{full}:{TEMPLATE}") if root and full.startswith(revision) \
+        else None
+    if then is None:
+        # Nothing here holds the revision: the digest is all there is to go by.
+        where = (f"this checkout of hearth does not hold {revision}: fetch it to say more"
+                 if root else "with no checkout of hearth's history here, the revision is "
+                 "not read")
+        if digested is None:
+            return Copy(path, CANNOT_SAY, f"names hearth {revision} in the line's earlier form, "
+                                          f"with no digest, and {where}", revision)
         if digest(template) != digested:
             return Copy(path, 1, f"is not the template at {revision}: its text has changed "
                                  "since it was copied", revision)
-        return Copy(path, 0, f"is the template at {revision}, by its digest; with no checkout "
-                             "of hearth's history here, whether the template has changed since "
-                             "is not said", revision)
-    full = (_git(root, "rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}") or "").strip()
-    then = _git(root, "show", f"{full}:{TEMPLATE}") if full.startswith(revision) else None
-    if then is None:
-        return Copy(path, 1, f"names hearth {revision}, which is no revision of hearth's "
-                             "holding the template", revision)
+        if digested not in known:
+            return Copy(path, CANNOT_SAY, "names a digest this hearth does not know, a newer "
+                                          f"hearth's template or none; {where}", revision)
+        return Copy(path, 0, f"is a text hearth's template has had, by its digest; {where}",
+                    revision)
     if template != then:
         changed = list(difflib.unified_diff(_lines(then), _lines(template),
                                             f"the template at {revision}", str(path),
@@ -130,19 +166,25 @@ def check(path: str | Path, root: Path | None = None) -> Copy:
         put = sum(1 for line in changed if line[:1] == "+" and not line.startswith("+++"))
         return Copy(path, 1, f"differs from the template at {revision}: {out} of its lines "
                              f"taken out, {put} put in", revision, changed=changed)
+    published = _published(root, full)
+    late = "" if published else _unpublished(revision)
+    if digested is None:
+        return Copy(path, 0, f"is the template at {revision}, its line in the earlier form with "
+                             f"no digest: hearth fork writes the line as it is now{late}",
+                    revision, published=published)
     if digest(then) != digested:
         return Copy(path, 1, f"is the template at {revision}, but its line names another "
                              "text's digest", revision)
     if _git(root, "show", f"HEAD:{TEMPLATE}") == then:
-        return Copy(path, 0, f"is the template at {revision}, which is the template now",
-                    revision, current=True)
+        return Copy(path, 0, f"is the template at {revision}, which is the template now{late}",
+                    revision, current=True, published=published)
     if _git(root, "merge-base", "--is-ancestor", full, "HEAD") is None:
         return Copy(path, 0, f"is the template at {revision}, which hearth's HEAD does not "
-                             "descend from", revision, outside=True)
+                             f"descend from{late}", revision, outside=True, published=published)
     since = (_git(root, "log", "--format=%h %s", f"{full}..HEAD", "--", TEMPLATE)
              or "").splitlines()
-    return Copy(path, 0, f"is the template at {revision}; the template has changed since",
-                revision, since=since)
+    return Copy(path, 0, f"is the template at {revision}; the template has changed since{late}",
+                revision, since=since, published=published)
 
 
 def fork(path: str | Path, root: Path | None = None) -> Copy:
@@ -166,9 +208,6 @@ def fork(path: str | Path, root: Path | None = None) -> Copy:
             return found
     path.write_bytes(now.replace(ORIGIN, LINE.format(revision=head, digest=digest(now)), 1)
                      .encode("utf-8"))
-    published = bool(_git(root, "for-each-ref", "--contains", "HEAD", "refs/remotes"))
-    said = f"is the template at {head}, written"
-    if not published:
-        said += ("; no remote of hearth holds that revision, so only this checkout can say "
-                 "what the copy names")
+    published = _published(root, "HEAD")
+    said = f"is the template at {head}, written" + ("" if published else _unpublished(head))
     return Copy(path, 0, said, head, current=True, published=published)

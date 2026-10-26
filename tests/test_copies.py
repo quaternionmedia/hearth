@@ -86,17 +86,27 @@ def test_the_copy_shows_by_itself_that_it_is_the_template_its_line_names(copy):
     assert copies.digest(text.replace(named.group(0), copies.ORIGIN)) == named.group(2)
 
 
-def test_fork_says_when_no_remote_of_hearth_holds_the_revision_it_names(hearth, tmp_path):
-    alone = copies.fork(tmp_path / "alone.py", hearth)
+def test_fork_and_check_say_when_no_remote_off_this_machine_holds_the_revision(
+        hearth, tmp_path):
+    """A remote on this machine, a clone's own origin say, is no place to read it from.
+
+    Mutation: any remote-tracking ref taken as published -- red here.
+    """
     remote = tmp_path / "remote.git"
     _git(tmp_path, "init", "-q", "--bare", str(remote))
-    _git(hearth, "remote", "add", "origin", str(remote))
-    _git(hearth, "push", "-q", "origin", "main")
+    _git(hearth, "remote", "add", "near", str(remote))
+    _git(hearth, "push", "-q", "near", "main")
+    alone = copies.fork(tmp_path / "alone.py", hearth)
+    checked = copies.check(tmp_path / "alone.py", hearth)
+    _git(hearth, "remote", "add", "forge", "https://forge.invalid/hearth.git")
+    _git(hearth, "update-ref", "refs/remotes/forge/main", "HEAD")  # as a fetch leaves it
 
     published = copies.fork(tmp_path / "published.py", hearth)
 
-    assert not alone.published and "no remote of hearth holds" in alone.said
+    assert not alone.published and "no remote of hearth off this machine holds" in alone.said
+    assert not checked.published and "no remote of hearth off this machine" in checked.said
     assert published.published and "remote" not in published.said
+    assert copies.check(tmp_path / "published.py", hearth).published
 
 
 def test_fork_takes_the_newer_template_into_a_copy_its_owner_has_not_changed(hearth, copy):
@@ -211,23 +221,40 @@ def test_a_copy_whose_line_names_another_text_is_not_the_template(hearth, copy):
 @pytest.mark.parametrize("text, said", [
     (TEMPLATE, "is the template itself"),
     (TEMPLATE.replace(copies.ORIGIN, ""), "names no hearth revision"),
-    (TEMPLATE.replace(copies.ORIGIN, "Copied from: hearth 0123456789ab."),
-     "names no hearth revision"),
     (TEMPLATE.replace(copies.ORIGIN, line("0123ab")), "names no hearth revision"),
-    (TEMPLATE.replace(copies.ORIGIN, line("0123456789ab")),
-     "names hearth 0123456789ab, which is no revision of hearth's"),
-    (TEMPLATE.replace(copies.ORIGIN, line("deadbeef")),
-     "names hearth deadbeef, which is no revision of hearth's"),
+    (TEMPLATE.replace(copies.ORIGIN, line("0123456789ab")[:-2] + "."),
+     "names no hearth revision"),
+    (TEMPLATE.replace(copies.ORIGIN, line("0123456789ab")[:-1] + "0."),
+     "names no hearth revision"),
 ])
 def test_a_file_that_names_no_revision_of_hearth_is_not_a_copy(hearth, tmp_path, text, said):
-    """``deadbeef`` is a branch here, so a name that resolves to some other commit is refused."""
-    _git(hearth, "branch", "deadbeef")
+    """Mutations: a revision of fewer than seven digits, or a digest of other than sixteen,
+    taken for a line -- each red here."""
     named = tmp_path / "coordinator.py"
     named.write_text(text, encoding="utf-8")
 
     found = copies.check(named, hearth)
 
     assert found.status == 1 and found.said.startswith(said), found.said
+
+
+@pytest.mark.parametrize("revision", ["0123456789ab", "deadbeef"])
+def test_a_revision_hearth_s_checkout_does_not_hold_is_judged_by_the_digest_alone(
+        hearth, tmp_path, revision):
+    """A stale clone, or a name that resolves to some other commit: ``deadbeef`` is a branch
+    here. The text is the template's when hearth knows its digest, and cannot be said when
+    hearth does not."""
+    _git(hearth, "branch", "deadbeef")
+    named = tmp_path / "coordinator.py"
+    named.write_text(TEMPLATE.replace(copies.ORIGIN, line(revision)), encoding="utf-8")
+
+    unknown = copies.check(named, hearth, known=())
+    known = copies.check(named, hearth, known=(copies.digest(TEMPLATE),))
+
+    assert unknown.status == copies.CANNOT_SAY, unknown.said
+    assert f"does not hold {revision}" in unknown.said
+    assert known.status == 0 and not known.current, known.said
+    assert known.said.startswith("is a text hearth's template has had")
 
 
 @pytest.mark.parametrize("make", [
@@ -262,14 +289,61 @@ def test_without_hearth_s_history_the_copy_s_digest_still_says_whether_it_change
         monkeypatch.setattr(copies.subprocess, "run", no_git)
         root = hearth
 
-    found = copies.check(copy, root)
+    known = (copies.digest(TEMPLATE),)
+    found = copies.check(copy, root, known)
+    unknown = copies.check(copy, root, known=())
     copy.write_text(copy.read_text(encoding="utf-8").replace("5.0", "9.0"), encoding="utf-8")
-    changed = copies.check(copy, root)
+    changed = copies.check(copy, root, known)
 
     assert found.status == 0 and "by its digest" in found.said, found.said
+    assert not found.current
+    assert unknown.status == copies.CANNOT_SAY and "does not know" in unknown.said
     assert changed.status == 1 and "has changed since it was copied" in changed.said
     assert copies.fork(tmp_path / "other.py", root).status == copies.CANNOT_SAY
     assert not (tmp_path / "other.py").exists()
+
+
+def test_a_text_made_up_to_agree_with_its_own_line_is_not_the_template(tmp_path, monkeypatch):
+    """The copy's digest ties it to itself; only ``KNOWN`` ties it to hearth.
+
+    Mutation: a digest that agrees with its own copy taken as the template's -- red here.
+    """
+    monkeypatch.setattr(copies, "checkout", lambda: None)
+    made_up = TEMPLATE + 'import os\nos.system("anything")\n'
+    named = tmp_path / "coordinator.py"
+    named.write_text(made_up.replace(copies.ORIGIN, line("0000000000aa", made_up)),
+                     encoding="utf-8")
+
+    assert copies.check(named).status == copies.CANNOT_SAY
+
+
+def test_hearth_knows_the_digest_of_its_template_as_it_stands():
+    """A change to the template adds its digest to ``KNOWN``, so a release knows every text."""
+    root = copies.checkout()
+    if root is None:
+        pytest.fail("this test runs from hearth's checkout, where the template is")
+    now = copies.digest((root / copies.TEMPLATE).read_text(encoding="utf-8"))
+
+    assert copies.KNOWN[-1] == now, f"add {now!r} to copies.KNOWN"
+
+
+def test_a_copy_whose_line_has_no_digest_yet_is_taken_into_the_line_as_it_is_now(
+        hearth, tmp_path, monkeypatch):
+    """Mutation: the earlier line refused, so a copy made before the digest is stranded."""
+    earlier = tmp_path / "coordinator.py"
+    head = _git(hearth, "rev-parse", "--short=12", "HEAD")
+    earlier.write_text(TEMPLATE.replace(copies.ORIGIN, f"Copied from: hearth {head}."),
+                       encoding="utf-8")
+    found = copies.check(earlier, hearth)
+
+    taken = copies.fork(earlier, hearth)
+
+    assert found.status == 0 and not found.current and "earlier form" in found.said
+    assert taken.status == 0 and copies.check(earlier, hearth).current
+    monkeypatch.setattr(copies, "checkout", lambda: None)
+    earlier.write_text(TEMPLATE.replace(copies.ORIGIN, f"Copied from: hearth {head}."),
+                       encoding="utf-8")
+    assert copies.check(earlier).status == copies.CANNOT_SAY
 
 
 def test_hearth_s_checkout_is_found_only_where_its_history_is(tmp_path, monkeypatch):
@@ -305,6 +379,24 @@ def test_check_copy_never_writes_and_says_what_it_found(hearth, copy, monkeypatc
     assert "-TIMEOUT = 5.0" in changed and "+TIMEOUT = 9.0" in changed
 
 
+def test_fork_exits_1_when_it_will_not_write_and_says_what_to_do(hearth, tmp_path, monkeypatch,
+                                                                capsys):
+    """Mutations: a refused fork exiting 0, or a copy outside HEAD's history given no
+    advice -- each red here."""
+    monkeypatch.setattr(copies, "checkout", lambda: hearth)
+    _git(hearth, "switch", "-q", "-c", "newer")
+    commit(hearth, TEMPLATE.replace("5.0", "3.0"), "a shorter timeout")
+    made = tmp_path / "coordinator.py"
+    copies.fork(made, hearth)
+    _git(hearth, "switch", "-q", "main")
+
+    assert conformance.main(["check", "--copy", str(made)]) == 0
+    assert "fork it again from a checkout of hearth whose HEAD holds" in capsys.readouterr().out
+    made.write_text(made.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
+    assert conformance.main(["fork", str(made)]) == 1
+    assert "nothing written" in capsys.readouterr().out
+
+
 def test_check_takes_a_hub_or_a_copy_never_both(capsys):
     with pytest.raises(SystemExit):
         conformance.main(["check", "--copy", "--hub", "http://127.0.0.1:1"])
@@ -313,8 +405,9 @@ def test_check_takes_a_hub_or_a_copy_never_both(capsys):
 
 def test_hearth_forks_its_own_template_and_judges_the_copy(tmp_path, capsys):
     """The commands an exemplar runs, against hearth's own checkout."""
-    if copies.checkout() is None:
-        pytest.fail("these tests run from hearth's checkout, where the template's history is")
+    if copies._history(copies.checkout()) is None:
+        pytest.fail("fork needs hearth's checkout with all of its history: clone without "
+                    "--depth, or check out with fetch-depth 0")
     made = tmp_path / "coordinator.py"
 
     assert conformance.main(["fork", str(made)]) == 0

@@ -43,7 +43,7 @@ The walkthrough's pages run as doctests in the ordinary test command.
 uv sync
 uv run pytest
 uv run hearth check http://127.0.0.1:18410 --action '{"clock": "lap"}'
-uv run hearth check --hub http://127.0.0.1:18700 --pull leo
+uv run hearth check --hub http://127.0.0.1:18700 --pull leo   # its read is a delivery
 uv run hearth check --copy <ShowRunner>/src/showrunner/plugins/family/coordinator.py
 ```
 

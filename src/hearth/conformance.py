@@ -281,7 +281,9 @@ def main(argv: list[str] | None = None) -> int:
                       help="URL is the path of an exemplar's copy of the coordinator template: "
                            "say whether it is still the template")
     asked.add_argument("--pull", default=None,
-                       help="with --hub, a pull member in the hub's table to check the routes of")
+                       help="with --hub, a pull member in the hub's table to check the routes of; "
+                            "its reads are reads like any other, so one after a fire is that "
+                            "fire's delivery")
     asked.add_argument("--timeout", type=float, default=5.0)
     forked = sub.add_parser("fork", help="write hearth's coordinator template to PATH, or take "
                                          "the newest template into the copy there")
