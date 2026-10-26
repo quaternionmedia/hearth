@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import re
 import sys
 import time
 from pathlib import Path
@@ -65,6 +66,18 @@ def test_the_show_does_every_act_on_a_cue():
     crashed = next(i for i, block in enumerate(acts) if "stagehand" in block
                    and "crash" in block["stagehand"])
     assert "carlos" in acts[crashed + 1], "the cue after carlos falls names it again"
+
+
+def test_the_demo_s_page_lists_the_show_s_cues_as_cues_toml_holds_them():
+    """``docs/demo.md``'s table of the show, row by row: a cue renamed, moved, added or taken
+    out is red here until the page says so."""
+    from hearth_demo import backstage
+
+    page = (DEMO.parents[1] / "docs" / "demo.md").read_text(encoding="utf-8")
+    rows = re.findall(r"^\| (\d+) (.+?) \| (.+?) \|", page, re.MULTILINE)
+
+    assert [(int(number), name, line) for number, name, line in rows] == [
+        (cue["number"], cue["name"], cue["line"]) for cue in backstage.cues(SHOW / "cues.toml")]
 
 
 def test_the_show_is_made_through_the_hub_s_routes_once_and_not_again():
@@ -201,7 +214,6 @@ def test_the_demo_runs_nothing_of_its_own_beside_the_show(demo):
                  if isinstance(node, ast.ImportFrom)}
 
     assert not imported & {"fastapi", "uvicorn", "httpx", "hearth", "threading"}
-    assert "panel" not in demo.ports(18700)
 
 
 def test_the_hub_is_showrunner_s_own_command_with_the_show_s_plugins_beside_it(demo, tmp_path):
@@ -213,6 +225,8 @@ def test_the_hub_is_showrunner_s_own_command_with_the_show_s_plugins_beside_it(d
     beside = [command[i + 1] for i, word in enumerate(command) if word == "--with-editable"]
     assert beside == [str(demo.HEARTH), str(PLUGINS), str(dev / "ShowStopper")]
     assert command[command.index("--project") + 1] == str(dev / "ShowRunner")
+    # Installed afresh: a cached build keeps the entry points it was built with.
+    assert command[command.index("--reinstall-package") + 1] == "hearth-demo-plugins"
     assert Path(command[command.index("--config") + 1]).is_file()
 
 
@@ -236,6 +250,9 @@ def test_the_hub_s_show_toml_sets_up_the_show_as_show_toml_does(demo, tmp_path):
     assert Path(proposal["script"]).is_file() and Path(proposal["cues"]).is_file()
     assert proposal["copy"] == (dev / "ShowRunner" / demo.COPY).as_posix()
     assert [m["name"] for m in proposal["members"]] == ["showstopper", "carlos", "joe", "leo"]
+    # What cue 8 sends each to time it; leo is a page, with no routes of its own to check.
+    assert [m.get("check") for m in proposal["members"]] == [
+        {"clock": "lap"}, {"turn": "front"}, {}, None]
     assert proposal["members"] == demo.members(dev, work, 18700)
 
 
@@ -383,6 +400,78 @@ def until(found, within: float = 15.0):
     raise AssertionError(f"not within {within:g}s")
 
 
+SLEEPER = {"name": "sleeper", "command": [sys.executable, "-c", "import time; time.sleep(60)"],
+           "url": "http://127.0.0.1:9"}
+
+
+@pytest.fixture()
+def plugins():
+    """The demo's plugin modules, imported against a stand-in hub, and forgotten after."""
+    modules = ("hearth_demo.show", "hearth_demo.hosted")
+    for module in modules:
+        sys.modules.pop(module, None)
+    with testing.showrunner_hub() as hub:
+        from hearth_demo import hosted, show
+
+        yield hub, show, hosted
+        show.running = None
+    for module in modules:
+        sys.modules.pop(module, None)
+
+
+def test_the_show_s_plugin_keeps_its_members_from_the_hub_s_startup_to_its_shutdown(plugins):
+    """Mutation: the members left running at the hub's shutdown -- red here."""
+    hub, show, _ = plugins
+    hub.register(show.Proposal(), name="proposal")
+    app = testing.hub_app(hub, {"proposal": {"hub": "http://127.0.0.1:9",
+                                             "members": [SLEEPER]}})
+
+    hub.hook.showrunner_startup(app=app)
+    try:
+        assert show.running is not None and show.running.running() == ["sleeper"]
+        process = until(lambda: show.running.supervisor.watched["sleeper"].process)
+    finally:
+        hub.hook.showrunner_shutdown(app=app)
+
+    assert show.running is None and process.poll() is not None
+
+
+def test_a_hub_with_no_proposal_table_starts_a_show_of_nothing(plugins):
+    hub, show, _ = plugins
+    hub.register(show.Proposal(), name="proposal")
+    app = testing.hub_app(hub)
+
+    hub.hook.showrunner_startup(app=app)
+    try:
+        assert show.running.running() == []
+    finally:
+        hub.hook.showrunner_shutdown(app=app)
+
+
+def test_the_stagehand_is_hosted_in_the_hub_and_reaches_the_show_that_is_running(plugins,
+                                                                                tmp_path):
+    """The hosted plugin as ShowRunner loads it: its devices from its table, and the show it
+    knocks members over in found when it acts, whichever plugin started first."""
+    hub, show, hosted = plugins
+    hub.register(hosted.stagehand, name="stagehand")
+    device = tmp_path / "beat-box.device"
+    app = testing.hub_app(hub, {"stagehand": {"devices": {"metronome": str(device)}}})
+    hub.hook.showrunner_startup(app=app)
+    receive = {name: call for answer in hub.hook.showrunner_family_members()
+               for name, call in answer.items()}["stagehand"]
+    cue = {"number": "4"}
+    try:
+        assert receive({"cue": cue, "action": {"plug": "metronome"}})[0] == 200
+        assert device.read_text(encoding="utf-8") == "plugged in"
+        assert receive({"cue": cue, "action": {"crash": "carlos"}})[0] == 422  # no show yet
+
+        show.running = Backstage()
+        assert receive({"cue": cue, "action": {"crash": "carlos"}})[0] == 200
+        assert show.running.knocked == ["carlos"]
+    finally:
+        hub.hook.showrunner_shutdown(app=app)
+
+
 def test_the_checks_say_whether_the_hub_s_coordinator_is_still_the_template(tmp_path):
     """Mutation: the verdict and the finding swapped, as a page of the demo's once showed them
     -- red here."""
@@ -418,7 +507,8 @@ def test_the_checks_judge_the_members_the_hub_and_its_copy(tmp_path, monkeypatch
                         lambda url, action: asked.append(("check", url, action)) or report)
     monkeypatch.setattr(backstage.conformance, "check_hub",
                         lambda url, *rest, **kw: asked.append(("hub", url, rest, kw)) or report)
-    show = backstage.Show({"hub": "http://hub", "members": [
+    show = backstage.Show({"hub": "http://hub", "copy": str(tmp_path / "coordinator.py"),
+                           "members": [
         {"name": "carlos", "url": "http://carlos", "command": ["x"], "check": {"turn": "front"}},
         {"name": "joe", "url": "http://joe", "command": ["x"], "check": {}},
         {"name": "leo", "url": "http://leo", "command": ["x"]}]}, say=lambda text: None)
@@ -428,7 +518,8 @@ def test_the_checks_judge_the_members_the_hub_and_its_copy(tmp_path, monkeypatch
     assert asked == [("check", "http://carlos", {"turn": "front"}),
                      ("check", "http://joe", None), ("hub", "http://hub", (), {})]
     assert [row["what"] for row in rows] == ["carlos, served alone", "joe, served alone",
-                                             "the hub"]
+                                             "the hub", "the hub's coordinator"]
+    assert rows[-1]["verdict"] == "is not the template"  # there is no copy at that path
 
 
 # --- a run ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ hearth holds four things:
 | **The contract and its check** | `family/1`, both sides; `hearth check URL` judges a member and `hearth check --hub URL` a coordinator, by their routes alone | [`docs/contract.md`](docs/contract.md) |
 | **The member library** | `hearth.Member`, which says what an action changes and what its state is; the hosts that serve one alone, beside an aiohttp page, or inside ShowRunner; `hearth.supervise`, which keeps one running; `follow.js`, which a page follows one with; `hearth.testing` | [`docs/hosting.md`](docs/hosting.md) |
 | **The coordinator template** | [`template/coordinator.py`](template/coordinator.py), which an app that coordinates a family copies whole and runs; `hearth fork` makes and updates the copy, and `hearth check --copy` says whether it is still the template | [`docs/coordinator.md`](docs/coordinator.md) |
-| **The demo** | the whole arrangement on one machine, ShowRunner as the hub, every part run as it runs at a show | [`docs/demo.md`](docs/demo.md) |
+| **The demo** | the proposal as a show of nine cues, run by ShowRunner alone: its plugins keep the members beside it, and a stagehand hosted in it does the acts backstage on its cues | [`docs/demo.md`](docs/demo.md) |
 
 A member runs hearth's library. A coordinator runs hearth's template, copied
 whole into the app beside the app's own code, so the app depends on nothing of

@@ -13,7 +13,7 @@ try:  # ShowRunner's own log, so what the show says is beside what the hub says
     from loguru import logger
 
     say = logger.info
-except ImportError:  # pragma: no cover -- every ShowRunner has loguru
+except ImportError:  # outside ShowRunner, as in hearth's own tests
     say = print
 
 from .backstage import Show
