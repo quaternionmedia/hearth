@@ -1,10 +1,11 @@
 # The demo
 
-The proposal runs as a show: ShowRunner, by its own command, on a show whose
-nine cues each show a part of it. Nothing of the demo's own runs beside it.
+The demo is a show, Loopback: ShowRunner, by its own command, on a show whose
+nine cues each show a part of the arrangement, each a round trip through the
+hub. Nothing of the demo's own runs beside it.
 
 ```bash
-uv run python demo/proposal.py --dev <dev>
+uv run python demo/loopback.py --dev <dev>
 ```
 
 `<dev>` holds the member checkouts on their family branches: ShowRunner,
@@ -17,7 +18,7 @@ ports are in use. Ctrl+C stops the show, and with it every member it started.
 
 ## The show
 
-[`demo/show/`](../demo/show) is the show: `proposal.fountain`, its script, and
+[`demo/show/`](../demo/show) is the show: `loopback.fountain`, its script, and
 `cues.toml`, its cues. Each cue sits on the line of the script it begins with;
 its notes say what to look for, and its family block is what GO fires. The
 show is made through the hub's own routes at its first start.
@@ -42,7 +43,7 @@ its deliveries wait unread, and the audit says so.
 | Part | What it is | How it runs |
 |---|---|---|
 | The hub | ShowRunner, running its copy of the coordinator template | `sr start --config show.toml`, by ShowRunner's own CLI module |
-| The show | the `proposal` plugin: the members kept running, the show made | found by ShowRunner's loader through the `showrunner` entry point, from the demo's own [`plugins/`](../demo/plugins) package |
+| The show | the `loopback` plugin: the members kept running, the show made | found by ShowRunner's loader through the `showrunner` entry point, from the demo's own [`plugins/`](../demo/plugins) package |
 | The stagehand | a member hosted in the hub that does the show's acts backstage: plugs in a device, knocks a member over, runs the checks | the same |
 | The metronome | a member hosted in the hub, whose device is missing at first | the same |
 | The rack | an `instruments` member offered to the hub, which refuses it | the same |
@@ -59,7 +60,7 @@ alone (`uv run --with-editable`), and ShowRunner finds them as it finds any
 installed plugin. Its show.toml sets each up as any show's would:
 `[plugins.family]` names the members, `[plugins.metronome]` the metronome's
 device, `[plugins.stagehand.devices]` what the stagehand may plug in,
-`[plugins.proposal]` the show's script, cues and the members it keeps running,
+`[plugins.loopback]` the show's script, cues and the members it keeps running,
 and `[plugins] disabled` turns off ShowStopper's hosted clock, since the clock
 runs beside the hub. `tests/test_demo.py` fails if the script imports
 ShowRunner, by name or otherwise, edits `sys.path`, sets an attribute on a

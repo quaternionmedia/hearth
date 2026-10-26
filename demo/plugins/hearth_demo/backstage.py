@@ -1,15 +1,15 @@
-"""The proposal's show, backstage: its members kept running, the show made, the checks run.
+"""Loopback, the demo's show, backstage: its members kept running, the show made, the checks run.
 
-``[plugins.proposal]`` in the hub's show.toml says what the show is::
+``[plugins.loopback]`` in the hub's show.toml says what the show is::
 
-    [plugins.proposal]
+    [plugins.loopback]
     hub = "http://127.0.0.1:18700"
-    script = "demo/show/proposal.fountain"
+    script = "demo/show/loopback.fountain"
     cues = "demo/show/cues.toml"
     copy = "<ShowRunner>/src/showrunner/plugins/family/coordinator.py"
     logs = "<work>/logs"
 
-    [[plugins.proposal.members]]
+    [[plugins.loopback.members]]
     name = "carlos"
     command = ["uv", "run", "--project", "<carlos>", "carlos", "serve", "..."]
     cwd = "<carlos>"
@@ -37,7 +37,7 @@ import tomllib
 from hearth import conformance, copies
 from hearth.supervise import Spec, Supervisor, _kill_tree
 
-NAME = "The proposal"  # the show's name in the hub
+NAME = "Loopback"  # the show's name in the hub
 # What a member's process is started without: the hub's own environment, which
 # would point uv at ShowRunner's project rather than the member's.
 CLEAN = {"VIRTUAL_ENV": None, "PYTHONPATH": None, "UV_PROJECT_ENVIRONMENT": None}
@@ -49,7 +49,7 @@ def cues(path: Path) -> list[dict]:
 
 
 def specs(members: list[dict]) -> list[Spec]:
-    """What the supervisor keeps running, from ``[[plugins.proposal.members]]``."""
+    """What the supervisor keeps running, from ``[[plugins.loopback.members]]``."""
     return [Spec(m["name"], [str(word) for word in m["command"]], m["url"], cwd=m.get("cwd"),
                  env=CLEAN, ready=m.get("ready", "/family/identity")) for m in members]
 
@@ -68,11 +68,11 @@ def make_show(hub: str, script: Path, cue_file: Path, *, wait: float = 120.0,
             except httpx.HTTPError:
                 pass
             if time.monotonic() > deadline:
-                say(f"proposal: the hub did not answer at {hub} within {wait:g}s; no show made")
+                say(f"loopback: the hub did not answer at {hub} within {wait:g}s; no show made")
                 return None
             time.sleep(0.25)
         if any(show.get("name") == NAME for show in shows.json()):
-            say(f"proposal: the hub already holds {NAME!r}")
+            say(f"loopback: the hub already holds {NAME!r}")
             return None
 
         def made(method: str, path: str, **kwargs) -> dict:
@@ -93,7 +93,7 @@ def make_show(hub: str, script: Path, cue_file: Path, *, wait: float = 120.0,
                        "script_line": next(i for i, line in enumerate(lines, 1)
                                            if line.startswith(cue["line"])),
                        "script_char": 0})
-        say(f"proposal: {NAME!r} is made: its script at {hub}/script, GO at {hub}/programmer")
+        say(f"loopback: {NAME!r} is made: its script at {hub}/script, GO at {hub}/programmer")
         return show
 
 
@@ -123,7 +123,7 @@ class Show:
     def start(self) -> None:
         self.supervisor.start()
         if self.settings.get("script") and self.settings.get("cues"):
-            threading.Thread(target=make_show, name="proposal-show", daemon=True,
+            threading.Thread(target=make_show, name="loopback-show", daemon=True,
                              args=(self.settings["hub"], Path(self.settings["script"]),
                                    Path(self.settings["cues"])),
                              kwargs={"say": self.say}).start()

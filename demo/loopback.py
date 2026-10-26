@@ -1,4 +1,4 @@
-"""The proposal, as a show: ShowRunner by its own command, on the proposal's show.toml.
+"""Loopback, the demo's show: ShowRunner by its own command, on the show's own show.toml.
 
 ShowRunner is the one app that runs. The show is ``demo/show/``: a script, and
 cues whose family blocks are what each GO fires. The demo's plugins, found
@@ -10,7 +10,7 @@ show.toml for the checkouts under ``--dev`` and runs ShowRunner in the
 foreground; it imports nothing of ShowRunner and changes nothing in it.
 ``docs/demo.md`` says what each cue does::
 
-    uv run python demo/proposal.py --dev <dev>
+    uv run python demo/loopback.py --dev <dev>
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ from pathlib import Path
 
 HEARTH = Path(__file__).resolve().parents[1]
 PLUGINS = HEARTH / "demo" / "plugins"  # the show and its hosted members, an installable package
-SHOW = HEARTH / "demo" / "show"  # the proposal's script and its cues
+SHOW = HEARTH / "demo" / "show"  # the show's script and its cues
 COPY = "src/showrunner/plugins/family/coordinator.py"  # the hub's copy of the template
-MARK = ".hearth-proposal"  # a --work directory this demo made, and may empty again
+MARK = ".hearth-loopback"  # a --work directory this demo made, and may empty again
 # What the hub's process is started without: the shell's own environment, which
 # would point uv at another project's.
 CLEAN = {"VIRTUAL_ENV": None, "PYTHONPATH": None, "UV_PROJECT_ENVIRONMENT": None}
@@ -56,7 +56,7 @@ def taken(candidates: list[int]) -> list[int]:
 def fresh(work: Path | None) -> Path:
     """The run's state directory, empty: a new one, or one an earlier run made."""
     if work is None:
-        work = Path(tempfile.mkdtemp(prefix="hearth-proposal-"))
+        work = Path(tempfile.mkdtemp(prefix="hearth-loopback-"))
     work = work.resolve()
     if work.exists() and any(work.iterdir()):
         if not (work / MARK).exists():
@@ -64,13 +64,13 @@ def fresh(work: Path | None) -> Path:
                              f"directory, or leave --work out")
         shutil.rmtree(work)
     work.mkdir(parents=True, exist_ok=True)
-    (work / MARK).write_text("made by hearth/demo/proposal.py; emptied at each run\n",
+    (work / MARK).write_text("made by hearth/demo/loopback.py; emptied at each run\n",
                              encoding="utf-8")
     return work
 
 
 def members(dev: Path, work: Path, port: int) -> list[dict]:
-    """The members beside the hub, as ``[[plugins.proposal.members]]`` names them."""
+    """The members beside the hub, as ``[[plugins.loopback.members]]`` names them."""
     at = ports(port)
 
     def run(member: str, *args: str) -> list[str]:
@@ -134,14 +134,14 @@ def show_toml(dev: Path, work: Path, port: int) -> str:
         "# The show's hands backstage: a member the hub hosts, and what it may plug in.\n"
         f"[plugins.stagehand.devices]\nmetronome = {toml(device)}\n\n"
         "# The show: its script and cues, and the members it keeps running beside the hub.\n"
-        f"[plugins.proposal]\nhub = {toml(hub)}\n"
-        f"script = {toml((SHOW / 'proposal.fountain').as_posix())}\n"
+        f"[plugins.loopback]\nhub = {toml(hub)}\n"
+        f"script = {toml((SHOW / 'loopback.fountain').as_posix())}\n"
         f"cues = {toml((SHOW / 'cues.toml').as_posix())}\n"
         f"copy = {toml((dev / 'ShowRunner' / COPY).as_posix())}\n"
         f"logs = {toml((work / 'logs').as_posix())}\n"
     )
     for member in members(dev, work, port):
-        text += "\n[[plugins.proposal.members]]\n" + "".join(
+        text += "\n[[plugins.loopback.members]]\n" + "".join(
             f"{key} = {toml(value)}\n" for key, value in member.items())
     return text
 

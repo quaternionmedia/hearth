@@ -1,7 +1,7 @@
-"""The proposal's show: its script and cues, the show.toml it runs on, and the demo's plugins.
+"""Loopback, the demo's show: its script and cues, the show.toml it runs on, and its plugins.
 
 None of these runs ShowRunner or a member: what they make is checked here, and
-the show itself runs from ``demo/proposal.py``.
+the show itself runs from ``demo/loopback.py``.
 """
 
 from __future__ import annotations
@@ -22,14 +22,14 @@ from hearth import conformance, copies, testing
 # The show runs where ShowRunner does, on Python 3.11 or later, which reads TOML.
 tomllib = pytest.importorskip("tomllib")
 
-DEMO = Path(__file__).resolve().parents[1] / "demo" / "proposal.py"
+DEMO = Path(__file__).resolve().parents[1] / "demo" / "loopback.py"
 PLUGINS = DEMO.parent / "plugins"
 SHOW = DEMO.parent / "show"
 
 
 @pytest.fixture(scope="module")
 def demo():
-    spec = importlib.util.spec_from_file_location("proposal", DEMO)
+    spec = importlib.util.spec_from_file_location("loopback", DEMO)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -41,7 +41,7 @@ def demo():
 def test_every_cue_sits_on_a_line_of_the_script_and_names_only_the_show_s_members():
     from hearth_demo import backstage
 
-    lines = (SHOW / "proposal.fountain").read_text(encoding="utf-8").splitlines()
+    lines = (SHOW / "loopback.fountain").read_text(encoding="utf-8").splitlines()
     members = {"showstopper", "carlos", "joe", "leo", "metronome", "rack", "stagehand"}
     cues = backstage.cues(SHOW / "cues.toml")
 
@@ -54,7 +54,7 @@ def test_every_cue_sits_on_a_line_of_the_script_and_names_only_the_show_s_member
 
 
 def test_the_show_does_every_act_on_a_cue():
-    """What the proposal shows, each a GO: a refusal, a device plugged in, a member knocked
+    """What Loopback shows, each a GO: a refusal, a device plugged in, a member knocked
     over and back, and the checks."""
     from hearth_demo import backstage
 
@@ -111,16 +111,16 @@ def test_the_show_is_made_through_the_hub_s_routes_once_and_not_again():
         return {"id": len(made)}
 
     with testing.serving(api) as hub:
-        first = backstage.make_show(hub, SHOW / "proposal.fountain", SHOW / "cues.toml",
+        first = backstage.make_show(hub, SHOW / "loopback.fountain", SHOW / "cues.toml",
                                     say=lambda text: None)
-        again = backstage.make_show(hub, SHOW / "proposal.fountain", SHOW / "cues.toml",
+        again = backstage.make_show(hub, SHOW / "loopback.fountain", SHOW / "cues.toml",
                                     say=lambda text: None)
 
     cues = [body for kind, body in made if kind == "cue"]
-    lines = (SHOW / "proposal.fountain").read_text(encoding="utf-8").splitlines()
+    lines = (SHOW / "loopback.fountain").read_text(encoding="utf-8").splitlines()
     assert (first, again) == (1, None)
     assert made[0] == ("script", {"title": backstage.NAME, "format": "fountain",
-                                  "content": (SHOW / "proposal.fountain").read_text(
+                                  "content": (SHOW / "loopback.fountain").read_text(
                                       encoding="utf-8")})
     assert len(cues) == len(backstage.cues(SHOW / "cues.toml"))
     for body in cues:
@@ -245,15 +245,15 @@ def test_the_hub_s_show_toml_sets_up_the_show_as_show_toml_does(demo, tmp_path):
     device = (work / "beat-box.device").as_posix()
     assert plugins["metronome"] == {"device": device}
     assert plugins["stagehand"] == {"devices": {"metronome": device}}
-    proposal = plugins["proposal"]
-    assert proposal["hub"] == "http://127.0.0.1:18700"
-    assert Path(proposal["script"]).is_file() and Path(proposal["cues"]).is_file()
-    assert proposal["copy"] == (dev / "ShowRunner" / demo.COPY).as_posix()
-    assert [m["name"] for m in proposal["members"]] == ["showstopper", "carlos", "joe", "leo"]
+    loopback = plugins["loopback"]
+    assert loopback["hub"] == "http://127.0.0.1:18700"
+    assert Path(loopback["script"]).is_file() and Path(loopback["cues"]).is_file()
+    assert loopback["copy"] == (dev / "ShowRunner" / demo.COPY).as_posix()
+    assert [m["name"] for m in loopback["members"]] == ["showstopper", "carlos", "joe", "leo"]
     # What cue 8 sends each to time it; leo is a page, with no routes of its own to check.
-    assert [m.get("check") for m in proposal["members"]] == [
+    assert [m.get("check") for m in loopback["members"]] == [
         {"clock": "lap"}, {"turn": "front"}, {}, None]
-    assert proposal["members"] == demo.members(dev, work, 18700)
+    assert loopback["members"] == demo.members(dev, work, 18700)
 
 
 def test_the_show_keeps_running_each_member_its_table_names(demo, tmp_path):
@@ -273,7 +273,7 @@ def test_the_show_keeps_running_each_member_its_table_names(demo, tmp_path):
 def test_the_demo_s_plugins_are_found_through_showrunner_s_entry_points():
     declared = tomllib.loads((PLUGINS / "pyproject.toml").read_text(encoding="utf-8"))
     points = declared["project"]["entry-points"]["showrunner"]
-    assert points == {"proposal": "hearth_demo.show:Proposal",
+    assert points == {"loopback": "hearth_demo.show:Loopback",
                       "metronome": "hearth_demo.hosted:metronome",
                       "rack": "hearth_demo.hosted:rack",
                       "stagehand": "hearth_demo.hosted:stagehand"}
@@ -283,7 +283,7 @@ def test_the_demo_s_plugins_are_found_through_showrunner_s_entry_points():
     with testing.showrunner_hub():
         from hearth_demo import hosted, show
 
-        assert show.Proposal.__name__.lower() == "proposal"  # what [plugins] disabled matches
+        assert show.Loopback.__name__.lower() == "loopback"  # what [plugins] disabled matches
         for name, value in points.items():
             if value.startswith("hearth_demo.hosted"):
                 assert getattr(hosted, value.split(":")[1]).__name__ == name
@@ -422,8 +422,8 @@ def plugins():
 def test_the_show_s_plugin_keeps_its_members_from_the_hub_s_startup_to_its_shutdown(plugins):
     """Mutation: the members left running at the hub's shutdown -- red here."""
     hub, show, _ = plugins
-    hub.register(show.Proposal(), name="proposal")
-    app = testing.hub_app(hub, {"proposal": {"hub": "http://127.0.0.1:9",
+    hub.register(show.Loopback(), name="loopback")
+    app = testing.hub_app(hub, {"loopback": {"hub": "http://127.0.0.1:9",
                                              "members": [SLEEPER]}})
 
     hub.hook.showrunner_startup(app=app)
@@ -436,9 +436,9 @@ def test_the_show_s_plugin_keeps_its_members_from_the_hub_s_startup_to_its_shutd
     assert show.running is None and process.poll() is not None
 
 
-def test_a_hub_with_no_proposal_table_starts_a_show_of_nothing(plugins):
+def test_a_hub_with_no_loopback_table_starts_a_show_of_nothing(plugins):
     hub, show, _ = plugins
-    hub.register(show.Proposal(), name="proposal")
+    hub.register(show.Loopback(), name="loopback")
     app = testing.hub_app(hub)
 
     hub.hook.showrunner_startup(app=app)

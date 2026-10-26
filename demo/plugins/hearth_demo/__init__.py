@@ -1,4 +1,4 @@
-"""The proposal's show and the members it hosts in the hub.
+"""Loopback, the demo's show, and the members it hosts in the hub.
 
 ``members`` says what each hosted member is: a metronome of the hub's family,
 a rack of another, and the stagehand, which does the show's acts backstage.

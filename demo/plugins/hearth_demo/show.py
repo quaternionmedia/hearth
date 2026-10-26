@@ -1,6 +1,6 @@
-"""The proposal's show, as a ShowRunner plugin: imported only by a hub loading its plugins.
+"""Loopback, the demo's show, as a ShowRunner plugin: imported only by a hub loading its plugins.
 
-At the hub's startup it starts the members ``[plugins.proposal]`` names and
+At the hub's startup it starts the members ``[plugins.loopback]`` names and
 keeps each running, and makes the show once the hub answers; at its shutdown it
 stops them. What it does is ``backstage``'s.
 """
@@ -22,22 +22,22 @@ from .backstage import Show
 running: Show | None = None
 
 
-class Proposal:
-    """The proposal's show: its members kept running, and its script and cues made.
+class Loopback:
+    """Loopback: its members kept running, and its script and cues made.
 
-    ShowRunner registers it as ``proposal``, the name ``[plugins] disabled`` matches.
+    ShowRunner registers it as ``loopback``, the name ``[plugins] disabled`` matches.
     """
 
     @showrunner.hookimpl
     def showrunner_register(self):
-        return {"name": "proposal", "description": "The proposal, as a show in cues",
+        return {"name": "loopback", "description": "Loopback, the demo's show in cues",
                 "version": "0"}
 
     @showrunner.hookimpl
     def showrunner_startup(self, app):
         global running
         config = getattr(app, "config", None)
-        settings = (config.plugins.settings.get("proposal", {}) if config is not None
+        settings = (config.plugins.settings.get("loopback", {}) if config is not None
                     else {}) or {}
         running = Show(settings, say=say)
         running.start()
