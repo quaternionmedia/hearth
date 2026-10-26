@@ -34,8 +34,9 @@ coordinator under it is the template at a named revision.
   [`walkthrough/03-a-coordinator.md`](walkthrough/03-a-coordinator.md), then
   `hearth fork` the template into the app as
   [`docs/coordinator.md`](docs/coordinator.md) says.
-- **See it all run:** `uv run python demo/proposal.py --dev <dev>`, then open
-  `http://127.0.0.1:18701/`.
+- **See it all run, as a show:** `uv run python demo/proposal.py --dev <dev>`,
+  then press GO through the nine cues at `http://127.0.0.1:18700/programmer`
+  ([`docs/demo.md`](docs/demo.md)).
 
 The walkthrough's pages run as doctests in the ordinary test command.
 

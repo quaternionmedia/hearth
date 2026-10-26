@@ -1,19 +1,29 @@
-"""The proposal demo's own pieces, without its hub or its members."""
+"""The proposal's show: its script and cues, the show.toml it runs on, and the demo's plugins.
+
+None of these runs ShowRunner or a member: what they make is checked here, and
+the show itself runs from ``demo/proposal.py``.
+"""
 
 from __future__ import annotations
 
 import ast
 import importlib.util
 import sys
+import time
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 
 import hearth
-from hearth import testing
+from hearth import conformance, copies, testing
+
+# The show runs where ShowRunner does, on Python 3.11 or later, which reads TOML.
+tomllib = pytest.importorskip("tomllib")
 
 DEMO = Path(__file__).resolve().parents[1] / "demo" / "proposal.py"
 PLUGINS = DEMO.parent / "plugins"
+SHOW = DEMO.parent / "show"
 
 
 @pytest.fixture(scope="module")
@@ -24,14 +34,87 @@ def demo():
     return module
 
 
-def test_every_cue_sits_on_a_line_of_the_script_and_names_only_the_demo_s_members(demo):
-    lines = demo.SCRIPT.splitlines()
-    members = {"showstopper", "carlos", "joe", "leo", "metronome", "rack"}
+# --- the show ------------------------------------------------------------------------
 
-    for number, _name, _layer, line, block in demo.CUES:
-        assert [text for text in lines if text.startswith(line)], f"cue {number}: {line!r}"
-        assert set(block) <= members, f"cue {number} names {set(block) - members}"
-        assert demo.NOTES[number], f"cue {number} has no note for people"
+
+def test_every_cue_sits_on_a_line_of_the_script_and_names_only_the_show_s_members():
+    from hearth_demo import backstage
+
+    lines = (SHOW / "proposal.fountain").read_text(encoding="utf-8").splitlines()
+    members = {"showstopper", "carlos", "joe", "leo", "metronome", "rack", "stagehand"}
+    cues = backstage.cues(SHOW / "cues.toml")
+
+    assert [cue["number"] for cue in cues] == list(range(1, len(cues) + 1))
+    for cue in cues:
+        on = [text for text in lines if text.startswith(cue["line"])]
+        assert len(on) == 1, f"cue {cue['number']} sits on {len(on)} lines: {cue['line']!r}"
+        assert set(cue["family"]) <= members, f"cue {cue['number']} names {set(cue['family'])}"
+        assert cue["notes"] and cue["layer"] in {"Clock", "Sound", "Stage"}
+
+
+def test_the_show_does_every_act_on_a_cue():
+    """What the proposal shows, each a GO: a refusal, a device plugged in, a member knocked
+    over and back, and the checks."""
+    from hearth_demo import backstage
+
+    acts = [cue["family"] for cue in backstage.cues(SHOW / "cues.toml")]
+    stagehand = [block["stagehand"] for block in acts if "stagehand" in block]
+
+    assert stagehand == [{"plug": "metronome"}, {"crash": "carlos"}, {"check": "the family"}]
+    assert any("rack" in block for block in acts) and any("metronome" in block for block in acts)
+    crashed = next(i for i, block in enumerate(acts) if "stagehand" in block
+                   and "crash" in block["stagehand"])
+    assert "carlos" in acts[crashed + 1], "the cue after carlos falls names it again"
+
+
+def test_the_show_is_made_through_the_hub_s_routes_once_and_not_again():
+    from hearth_demo import backstage
+
+    made: list[tuple[str, dict]] = []
+    shows: list[dict] = []
+    api = FastAPI()
+
+    @api.get("/db/shows")
+    def listed():
+        return shows
+
+    @api.post("/db/shows")
+    def show(name: str):
+        shows.append({"id": 1, "name": name})
+        return {"id": 1}
+
+    @api.post("/db/shows/{show}/scripts")
+    def script(show: int, body: dict):
+        made.append(("script", body))
+        return {"id": 1}
+
+    @api.post("/db/shows/{show}/cue-lists")
+    def cue_list(show: int, body: dict):
+        return {"id": 2}
+
+    @api.post("/db/cue-lists/{cue_list}/cues")
+    def cue(cue_list: int, body: dict):
+        made.append(("cue", body))
+        return {"id": len(made)}
+
+    with testing.serving(api) as hub:
+        first = backstage.make_show(hub, SHOW / "proposal.fountain", SHOW / "cues.toml",
+                                    say=lambda text: None)
+        again = backstage.make_show(hub, SHOW / "proposal.fountain", SHOW / "cues.toml",
+                                    say=lambda text: None)
+
+    cues = [body for kind, body in made if kind == "cue"]
+    lines = (SHOW / "proposal.fountain").read_text(encoding="utf-8").splitlines()
+    assert (first, again) == (1, None)
+    assert made[0] == ("script", {"title": backstage.NAME, "format": "fountain",
+                                  "content": (SHOW / "proposal.fountain").read_text(
+                                      encoding="utf-8")})
+    assert len(cues) == len(backstage.cues(SHOW / "cues.toml"))
+    for body in cues:
+        assert set(body["actions"]) == {"family"}
+        assert lines[body["script_line"] - 1].startswith(
+            next(c["line"] for c in backstage.cues(SHOW / "cues.toml")
+                 if c["number"] == body["number"]))
 
 
 # --- ShowRunner as itself ---------------------------------------------------------
@@ -49,7 +132,7 @@ def shims(path: Path, plugin: bool) -> list[str]:
     A tripwire for the plain forms, not a proof: a method that changes what it
     is called on (``.clear()``, ``.update()``) passes it, as does a change made
     to a hook's arguments. The script holds no ShowRunner object to call one
-    on, since it reaches the hub over HTTP alone.
+    on, since all it does is start ShowRunner by its own command.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     found, modules = [], set()
@@ -94,8 +177,8 @@ def shims(path: Path, plugin: bool) -> list[str]:
 
 
 def test_the_demo_runs_showrunner_and_neither_imports_nor_patches_it():
-    """The hub is ShowRunner's own process: the script reaches it over HTTP only, and
-    what runs inside it, the demo's plugins and hearth's host, patches nothing.
+    """ShowRunner is the one app: the script only starts it, and what runs inside it, the
+    demo's plugins and hearth's host, patches nothing.
 
     Mutations: ``import showrunner``, ``importlib.import_module("showrunner...")``
     under any name, ``from sys import path``, ``setattr`` or ``vars()`` on a
@@ -109,72 +192,86 @@ def test_the_demo_runs_showrunner_and_neither_imports_nor_patches_it():
         assert shims(path, plugin=True) == [], path.name
 
 
-def test_the_panel_says_whether_the_hub_s_coordinator_is_still_the_template(demo, tmp_path):
-    """Mutation: the verdict and the finding swapped, as a panel once showed them -- red here."""
-    from hearth import copies
+def test_the_demo_runs_nothing_of_its_own_beside_the_show(demo):
+    """No page, no supervisor, no server of the demo's: the script waits on ShowRunner."""
+    tree = ast.parse(DEMO.read_text(encoding="utf-8"))
+    imported = {alias.name.split(".")[0] for node in ast.walk(tree)
+                if isinstance(node, ast.Import) for alias in node.names}
+    imported |= {(node.module or "").split(".")[0] for node in ast.walk(tree)
+                 if isinstance(node, ast.ImportFrom)}
 
-    copy = tmp_path / "ShowRunner" / demo.COPY
-    copy.parent.mkdir(parents=True)
-    template = (demo.HEARTH / copies.TEMPLATE).read_text(encoding="utf-8")
-    head = (copies._git(demo.HEARTH, "rev-parse", "--short=12", "HEAD") or "").strip()
-    copy.write_text(template.replace(copies.ORIGIN, copies.LINE.format(
-        revision=head, digest=copies.digest(template))), encoding="utf-8")
-
-    kept = demo.copy_row(tmp_path)
-    copy.write_text(copy.read_text(encoding="utf-8") + "# changed\n", encoding="utf-8")
-    changed = demo.copy_row(tmp_path)
-    copy.unlink()
-    gone = demo.copy_row(tmp_path)
-
-    assert (kept["status"], kept["failed"]) == (0, ""), kept
-    assert kept["verdict"].startswith(("is the template at", "is a text hearth's template"))
-    assert (changed["status"], changed["verdict"]) == (1, "is not the template")
-    assert changed["failed"].startswith(("differs from the template", "is not the template at"))
-    assert (gone["status"], gone["verdict"]) == (1, "is not the template")
+    assert not imported & {"fastapi", "uvicorn", "httpx", "hearth", "threading"}
+    assert "panel" not in demo.ports(18700)
 
 
-def test_the_hub_is_showrunner_s_own_command_with_its_plugins_installed_beside_it(demo,
-                                                                                  tmp_path):
+def test_the_hub_is_showrunner_s_own_command_with_the_show_s_plugins_beside_it(demo, tmp_path):
     dev = tmp_path / "dev"
-    spec = demo.hub(dev, tmp_path / "work", 18700)
+    command = demo.hub(dev, tmp_path / "work", 18700)
 
-    command = spec.command
     start = command.index("-m")
     assert command[start:start + 4] == ["-m", "showrunner.cli", "start", "--config"]
     beside = [command[i + 1] for i, word in enumerate(command) if word == "--with-editable"]
     assert beside == [str(demo.HEARTH), str(PLUGINS), str(dev / "ShowStopper")]
     assert command[command.index("--project") + 1] == str(dev / "ShowRunner")
+    assert Path(command[command.index("--config") + 1]).is_file()
 
 
-def test_the_hub_s_show_toml_sets_up_its_plugins_as_show_toml_does(demo, tmp_path):
-    """ShowRunner reads it as it reads any show.toml: no table here is the demo's own."""
-    tomllib = pytest.importorskip("tomllib")
-    said = tomllib.loads(demo.show_toml(tmp_path, 18700))
+def test_the_hub_s_show_toml_sets_up_the_show_as_show_toml_does(demo, tmp_path):
+    """ShowRunner reads it as it reads any show.toml: each plugin's table is its own."""
+    dev, work = tmp_path / "dev", tmp_path / "work"
+    said = tomllib.loads(demo.show_toml(dev, work, 18700))
+    plugins = said["plugins"]
 
     assert said["server"] == {"host": "127.0.0.1", "port": 18700}
-    assert said["plugins"]["disabled"] == ["showstopper"]  # the clock runs beside the hub
-    assert said["plugins"]["family"]["pull"] == ["leo"]
-    assert said["plugins"]["family"]["members"] == {
+    assert plugins["disabled"] == ["showstopper"]  # the clock runs beside the hub
+    assert plugins["family"]["pull"] == ["leo"]
+    assert plugins["family"]["members"] == {
         "showstopper": "http://127.0.0.1:18710", "carlos": "http://127.0.0.1:18720",
         "joe": "http://127.0.0.1:18731"}
-    assert said["plugins"]["metronome"] == {"device": (tmp_path / "beat-box.device").as_posix()}
+    device = (work / "beat-box.device").as_posix()
+    assert plugins["metronome"] == {"device": device}
+    assert plugins["stagehand"] == {"devices": {"metronome": device}}
+    proposal = plugins["proposal"]
+    assert proposal["hub"] == "http://127.0.0.1:18700"
+    assert Path(proposal["script"]).is_file() and Path(proposal["cues"]).is_file()
+    assert proposal["copy"] == (dev / "ShowRunner" / demo.COPY).as_posix()
+    assert [m["name"] for m in proposal["members"]] == ["showstopper", "carlos", "joe", "leo"]
+    assert proposal["members"] == demo.members(dev, work, 18700)
+
+
+def test_the_show_keeps_running_each_member_its_table_names(demo, tmp_path):
+    from hearth_demo import backstage
+
+    rows = demo.members(tmp_path / "dev", tmp_path / "work", 18700)
+    specs = backstage.specs(rows)
+
+    assert [spec.name for spec in specs] == ["showstopper", "carlos", "joe", "leo"]
+    assert all(spec.env == backstage.CLEAN for spec in specs)
+    assert [spec.ready for spec in specs] == ["/family/identity"] * 3 + ["/"]
+    assert specs[2].url == "http://127.0.0.1:18731"  # joe answers the hub on its API
+    assert [spec.command[:6] for spec in specs][1] == [
+        "uv", "run", "--no-sync", "--project", str(tmp_path / "dev" / "carlos"), "carlos"]
 
 
 def test_the_demo_s_plugins_are_found_through_showrunner_s_entry_points():
-    tomllib = pytest.importorskip("tomllib")
     declared = tomllib.loads((PLUGINS / "pyproject.toml").read_text(encoding="utf-8"))
     points = declared["project"]["entry-points"]["showrunner"]
-    assert points == {"metronome": "hearth_demo.hosted:metronome",
-                      "rack": "hearth_demo.hosted:rack"}
+    assert points == {"proposal": "hearth_demo.show:Proposal",
+                      "metronome": "hearth_demo.hosted:metronome",
+                      "rack": "hearth_demo.hosted:rack",
+                      "stagehand": "hearth_demo.hosted:stagehand"}
 
-    sys.modules.pop("hearth_demo.hosted", None)
+    for module in ("hearth_demo.hosted", "hearth_demo.show"):
+        sys.modules.pop(module, None)
     with testing.showrunner_hub():
-        from hearth_demo import hosted
+        from hearth_demo import hosted, show
 
+        assert show.Proposal.__name__.lower() == "proposal"  # what [plugins] disabled matches
         for name, value in points.items():
-            plugin = getattr(hosted, value.split(":")[1])
-            assert plugin.__name__ == name  # what ShowRunner's [plugins] disabled matches
-    sys.modules.pop("hearth_demo.hosted", None)
+            if value.startswith("hearth_demo.hosted"):
+                assert getattr(hosted, value.split(":")[1]).__name__ == name
+    for module in ("hearth_demo.hosted", "hearth_demo.show"):
+        sys.modules.pop(module, None)
 
 
 # --- the hosted members ------------------------------------------------------------
@@ -201,6 +298,137 @@ def test_the_rack_is_of_another_family_than_the_hub():
 
     assert Rack.family == "instruments" != Metronome.family
     assert isinstance(Rack(), hearth.Member)
+
+
+class Backstage:
+    def __init__(self):
+        self.knocked: list[str] = []
+
+    def running(self):
+        return ["carlos", "joe"]
+
+    def knock_over(self, name):
+        self.knocked.append(name)
+
+    def check(self):
+        return [{"what": "carlos, served alone", "verdict": "conforms", "failed": ""}]
+
+
+def test_the_stagehand_does_one_act_a_cue_and_says_each(tmp_path):
+    from hearth_demo.members import Stagehand
+
+    device, backstage, said = tmp_path / "beat-box.device", Backstage(), []
+    hand = Stagehand({"metronome": device}, backstage, say=said.append)
+    cue = {"number": "4"}
+
+    assert hand.receive({"cue": cue, "action": {"plug": "metronome"}})[0] == 200
+    assert hand.receive({"cue": cue, "action": {"crash": "carlos"}})[0] == 200
+    status, answer = hand.receive({"cue": cue, "action": {"check": "the family"}})
+
+    assert device.read_text(encoding="utf-8") == "plugged in"
+    assert backstage.knocked == ["carlos"]
+    assert status == 200 and answer["state"]["checked"][0]["verdict"] == "conforms"
+    assert said == ["stagehand: metronome's device is plugged in",
+                    "stagehand: carlos knocked over; its supervisor brings it back",
+                    "hearth check carlos, served alone: conforms"]
+
+
+@pytest.mark.parametrize("action, error", [
+    ({"plug": "rack"}, "there is no device of 'rack' to plug in"),
+    ({"crash": "leo"}, "'leo' is not a member the show keeps running"),
+    ({"plug": "metronome", "crash": "carlos"}, "the stagehand does one thing a cue, not 2"),
+    ({"sweep": "stage"}, "stagehand does not take 'sweep'"),
+])
+def test_the_stagehand_refuses_what_it_cannot_reach(tmp_path, action, error):
+    from hearth_demo.members import Stagehand
+
+    backstage = Backstage()
+    hand = Stagehand({"metronome": tmp_path / "beat-box.device"}, backstage, say=lambda t: None)
+
+    status, answer = hand.receive({"cue": {"number": "6"}, "action": action})
+
+    assert status == 422 and error in answer["error"]
+    assert backstage.knocked == [] and not (tmp_path / "beat-box.device").exists()
+
+
+def test_a_member_the_show_keeps_running_is_knocked_over_and_brought_back(tmp_path):
+    from hearth_demo import backstage
+
+    show = backstage.Show({"hub": "http://127.0.0.1:9", "members": [
+        {"name": "sleeper", "command": [sys.executable, "-c", "import time; time.sleep(60)"],
+         "url": "http://127.0.0.1:9"}]}, say=lambda text: None)
+    show.supervisor.backoff = lambda restarts: 0.1
+    show.start()
+    try:
+        watched = show.supervisor.watched["sleeper"]
+        first = until(lambda: watched.process)
+
+        show.knock_over("sleeper")
+
+        assert first.poll() is not None
+        assert until(lambda: watched.process if watched.process is not first else None)
+        assert watched.exits and show.running() == ["sleeper"]
+    finally:
+        show.stop()
+
+
+def until(found, within: float = 15.0):
+    """What ``found`` returns once it returns something, within ``within`` seconds."""
+    deadline = time.monotonic() + within
+    while time.monotonic() < deadline:
+        value = found()
+        if value:
+            return value
+        time.sleep(0.05)
+    raise AssertionError(f"not within {within:g}s")
+
+
+def test_the_checks_say_whether_the_hub_s_coordinator_is_still_the_template(tmp_path):
+    """Mutation: the verdict and the finding swapped, as a page of the demo's once showed them
+    -- red here."""
+    from hearth_demo import backstage
+
+    copy = tmp_path / "coordinator.py"
+    hearth_root = DEMO.parents[1]
+    template = (hearth_root / copies.TEMPLATE).read_text(encoding="utf-8")
+    head = (copies._git(hearth_root, "rev-parse", "--short=12", "HEAD") or "").strip()
+    copy.write_text(template.replace(copies.ORIGIN, copies.LINE.format(
+        revision=head, digest=copies.digest(template))), encoding="utf-8")
+
+    kept = backstage.copy_row(copy)
+    copy.write_text(copy.read_text(encoding="utf-8") + "# changed\n", encoding="utf-8")
+    changed = backstage.copy_row(copy)
+    copy.unlink()
+    gone = backstage.copy_row(copy)
+
+    assert (kept["status"], kept["failed"]) == (0, ""), kept
+    assert kept["verdict"].startswith(("is the template at", "is a text hearth's template"))
+    assert (changed["status"], changed["verdict"]) == (1, "is not the template")
+    assert changed["failed"].startswith(("differs from the template", "is not the template at"))
+    assert (gone["status"], gone["verdict"]) == (1, "is not the template")
+
+
+def test_the_checks_judge_the_members_the_hub_and_its_copy(tmp_path, monkeypatch):
+    """The hub is checked without --pull, so the checks take no delivery from leo's page."""
+    from hearth_demo import backstage
+
+    asked = []
+    report = conformance.Report("x")
+    monkeypatch.setattr(backstage.conformance, "check",
+                        lambda url, action: asked.append(("check", url, action)) or report)
+    monkeypatch.setattr(backstage.conformance, "check_hub",
+                        lambda url, *rest, **kw: asked.append(("hub", url, rest, kw)) or report)
+    show = backstage.Show({"hub": "http://hub", "members": [
+        {"name": "carlos", "url": "http://carlos", "command": ["x"], "check": {"turn": "front"}},
+        {"name": "joe", "url": "http://joe", "command": ["x"], "check": {}},
+        {"name": "leo", "url": "http://leo", "command": ["x"]}]}, say=lambda text: None)
+
+    rows = show.check()
+
+    assert asked == [("check", "http://carlos", {"turn": "front"}),
+                     ("check", "http://joe", None), ("hub", "http://hub", (), {})]
+    assert [row["what"] for row in rows] == ["carlos, served alone", "joe, served alone",
+                                             "the hub"]
 
 
 # --- a run ---------------------------------------------------------------------------
@@ -234,7 +462,14 @@ def test_a_port_already_listened_on_is_named_before_anything_is_emptied(demo):
         assert demo.taken([port, free]) == [port]
 
 
-def test_the_panel_has_a_port_of_its_own_beside_the_hub_s(demo):
+def test_every_port_a_run_binds_is_its_own(demo):
     at = demo.ports(18700)
-    assert (at["hub"], at["panel"]) == (18700, 18701)
-    assert len(set(at.values())) == len(at)
+    assert at["hub"] == 18700 and len(set(at.values())) == len(at)
+
+
+def test_a_toml_value_reads_back_as_written(demo):
+    value = {"command": ["uv", "run", "C:\\x y"], "check": {"turn": "front"}, "n": 5,
+             "on": True, "t": 0.5}
+    text = "".join(f"{key} = {demo.toml(item)}\n" for key, item in value.items())
+
+    assert tomllib.loads(text) == value

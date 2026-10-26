@@ -1,0 +1,86 @@
+# The proposal's cues. Each sits on the line of proposal.fountain it begins
+# with; its notes are for people, and its family block is what it fires.
+
+[[cue]]
+number = 1
+name = "House open"
+layer = "Clock"
+line = "The house opens."
+notes = "When the house is settled. ShowStopper's clock resets, leo's page turns to Autumn Leaves, carlos's rack takes the Launchpad patch."
+family.showstopper = { clock = "reset" }
+family.leo = { song = "Autumn Leaves" }
+family.carlos = { patch = "novation.launchpad-x.complex" }
+
+[[cue]]
+number = 2
+name = "Count in"
+layer = "Sound"
+line = "Count me in."
+notes = "On the performer's nod. The clock starts and joe takes four notes; the metronome answers 503, not ready, its device missing, and the cue goes on."
+family.showstopper = { clock = "start" }
+family.metronome = { beat = 120 }
+family.joe = { take = { notes = ["C4", "E4", "G4", "C5"], seconds_per_note = 0.5 } }
+
+[[cue]]
+number = 3
+name = "Second tune"
+layer = "Stage"
+line = "The band plays the second tune."
+notes = "Band in on the downbeat. leo is a page: open it, and it reads its action from the hub's stream in milliseconds; with no page open, the action waits unread. The rack answers 503, not hosted: it is of instruments, and the hub of show-control."
+family.leo = { song = "Blue Bossa" }
+family.carlos = { turn = "back" }
+family.metronome = { beat = 96 }
+family.rack = { turn = "back" }
+
+[[cue]]
+number = 4
+name = "Device in"
+layer = "Stage"
+line = "A stagehand plugs in the metronome's device."
+notes = "The stagehand, a member the hub hosts, plugs it in. Within eight seconds the hub's retry finds the metronome ready, with no restart."
+family.stagehand = { plug = "metronome" }
+
+[[cue]]
+number = 5
+name = "The solo"
+layer = "Sound"
+line = "Here comes the solo."
+notes = "Hold for the solo. The metronome answers 200 now."
+family.showstopper = { clock = "lap" }
+family.carlos = { patch = "moog.dfam.complex" }
+family.metronome = { beat = 108 }
+family.joe = { take = { notes = ["G3", "B3", "D4", "F4", "G4"], seconds_per_note = 0.5 } }
+
+[[cue]]
+number = 6
+name = "carlos down"
+layer = "Stage"
+line = "carlos falls over."
+notes = "The stagehand knocks carlos's process over. The show's supervisor brings it back as a new instance in a few seconds: watch its page come back."
+family.stagehand = { crash = "carlos" }
+
+[[cue]]
+number = 7
+name = "carlos back"
+layer = "Sound"
+line = "carlos is back, and is someone new."
+notes = "When carlos's page is back. The hub's audit, at /family/, credits this cue to carlos's new instance, which its answer names."
+family.carlos = { patch = "novation.launchpad-x.complex" }
+family.showstopper = { clock = "lap" }
+
+[[cue]]
+number = 8
+name = "The checks"
+layer = "Stage"
+line = "The stagehand holds every part to the contract."
+notes = "hearth check on ShowStopper, carlos and joe, each sent one real cue and timed; hearth check --hub on the hub; hearth check --copy on its coordinator. The verdicts are the stagehand's answer in the hub's audit, its state at /stagehand/family/state, and lines in ShowRunner's log."
+family.stagehand = { check = "the family" }
+
+[[cue]]
+number = 9
+name = "Curtain"
+layer = "Clock"
+line = "The curtain falls."
+notes = "Slow fade with the curtain."
+family.showstopper = { clock = "stop" }
+family.leo = { song = "Take The A Train" }

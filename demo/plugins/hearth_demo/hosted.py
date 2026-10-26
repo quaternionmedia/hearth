@@ -11,7 +11,9 @@ from pathlib import Path
 
 from hearth import showrunner as hosting
 
-from .members import Metronome, Rack
+from . import show
+from .backstage import Waiting
+from .members import Metronome, Rack, Stagehand
 
 # A demo retries a missing device every few seconds at most, not every thirty.
 RETRY_CAP = 8.0
@@ -22,3 +24,9 @@ metronome = hosting.plugin(lambda settings: Metronome(Path(settings["device"])),
 
 rack = hosting.plugin(lambda settings: Rack(), name="rack", family="instruments",
                       description="An instrument offered to the wrong hub")
+
+stagehand = hosting.plugin(
+    lambda settings: Stagehand({name: Path(path) for name, path
+                                in (settings.get("devices") or {}).items()},
+                               Waiting(lambda: show.running), say=show.say),
+    name="stagehand", family="show-control", description="The show's hands backstage")
