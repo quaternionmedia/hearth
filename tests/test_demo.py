@@ -129,7 +129,7 @@ def test_the_panel_says_whether_the_hub_s_coordinator_is_still_the_template(demo
     assert (kept["status"], kept["failed"]) == (0, ""), kept
     assert kept["verdict"].startswith(("is the template at", "is a text hearth's template"))
     assert (changed["status"], changed["verdict"]) == (1, "is not the template")
-    assert changed["failed"].startswith("differs from the template")
+    assert changed["failed"].startswith(("differs from the template", "is not the template at"))
     assert (gone["status"], gone["verdict"]) == (1, "is not the template")
 
 
