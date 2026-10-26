@@ -35,7 +35,7 @@ import httpx
 import tomllib
 
 from hearth import conformance, copies
-from hearth.supervise import Spec, Supervisor, _kill_tree
+from hearth.supervise import Spec, Supervisor, kill_tree
 
 NAME = "Loopback"  # the show's name in the hub
 # What a member's process is started without: the hub's own environment, which
@@ -139,7 +139,7 @@ class Show:
     def knock_over(self, name: str) -> None:
         process = self.supervisor.watched[name].process
         if process is not None:
-            _kill_tree(process)
+            kill_tree(process)
 
     def check(self) -> list[dict]:
         """hearth's checks of every member served alone, of the hub, and of its coordinator.

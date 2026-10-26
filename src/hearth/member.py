@@ -23,6 +23,7 @@ nothing is left to refuse.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import threading
@@ -111,7 +112,7 @@ class Member(ABC):
             previous, self.cue = self.cue, cue
             try:
                 change()
-            except Exception as exc:  # noqa: BLE001 -- the member's fault, answered, never raised
+            except Exception as exc:  # the member's fault, answered, never raised
                 self.cue = previous
                 return 500, {"ok": False,
                              "error": f"{self.name} failed acting on the cue: "
@@ -176,10 +177,8 @@ class Member(ABC):
         with self._lock:
             followers = list(self._followers)
         for follower in followers:
-            try:
+            with contextlib.suppress(Exception):  # a follower gone is not the member's fault
                 follower(snapshot)
-            except Exception:  # noqa: BLE001, S110 -- a follower that has gone is not the member's fault
-                pass
 
 
 def body_of(raw: bytes) -> Any:

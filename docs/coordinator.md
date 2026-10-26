@@ -8,14 +8,14 @@ the file whole, and writes what is its own in a module beside the copy. The
 template imports nothing of hearth, so neither does the exemplar.
 
 The template is where the coordinator changes. A copy is the template's text
-at the revision its `Copied from:` line names, whatever its line endings, and
-the line names that text too, by its digest:
+but for its `Copied from:` line, which names the hearth revision it was taken at
+and that text's digest, the first sixteen hex digits of its sha256:
 
 ```text
-Copied from: hearth 1c12aaac62cf, sha256 daa4d36d4c5344f1.
+Copied from: hearth <revision>, sha256 <digest>.
 ```
 
-So three facts about a copy are mechanical, at three strengths:
+Three facts about a copy are mechanical, at three strengths:
 
 - **That it still agrees with its line,** the exemplar's own tests say with
   nothing of hearth. It catches a change made by hand or by a formatter; the
@@ -85,21 +85,17 @@ So three facts about a copy are mechanical, at three strengths:
    `hearth check --copy <exemplar>/coordinator.py` against its tree. Neither
    needs hearth in the exemplar's environment: each runs from hearth's own.
 
-To take a later template, run `hearth fork` on the copy again. It writes the
-newer template over a copy that is still the template at a revision hearth's
-`HEAD` descends from. It refuses a copy that is not the template, showing the
-lines that differ, since writing over it would lose them, and a copy taken at
-a revision `HEAD` does not descend from, since writing over it could take it
-back to an older template. It takes a copy whose line is in its earlier form,
-with no digest, into the line as it is now. A change the exemplar needs in its
-copy is offered to the template instead, so the copy stays the template and
-every exemplar can take the change.
+To take a later template, run `hearth fork` on the copy again. It refuses a
+copy that is not the template, showing the lines that differ, and one taken at
+a revision `HEAD` does not descend from, which writing could take back to an
+older template. A change the exemplar needs is made in the template instead,
+and a commit that changes the template adds its digest to `KNOWN`; hearth's
+tests are red until it does.
 
 `hearth check --copy` exits 0 when the copy is the template's text, 1 when it
 is not, and 3 when it cannot say: a digest this hearth does not know, from a
 newer hearth or from no template. How far the template has moved since is said,
-not failed. A commit that changes the template adds its digest to `KNOWN`, and
-hearth's tests are red until it does.
+not failed.
 
 ## What it does
 
@@ -121,9 +117,8 @@ hearth's tests are red until it does.
 - **A malformed settings entry is skipped and said** in the exemplar's own
   table's words, through the exemplar's logger.
 
-The template's tests are hearth's, and import it where it stands; they test
-every copy whose line names a revision they passed at. An exemplar's tests hold
-what it supplies, one delivery each way through its own app, and the digest.
-hearth lints the template with the rules of the exemplars that copy it, since a
-copy is never edited to pass its owner's lint; an exemplar whose formatter
-would change the copy leaves the copy out of it.
+The template's tests are hearth's, and import it where it stands. An exemplar
+runs its copy on its own locked versions, so its tests hold what it supplies,
+with a delivery each way through the copy, and that the copy agrees with its
+line. hearth lints the template with the rules of the exemplars that copy it,
+since a copy is never edited to pass its owner's lint.

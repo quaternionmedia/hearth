@@ -205,7 +205,7 @@ def test_the_demo_runs_showrunner_and_neither_imports_nor_patches_it():
         assert shims(path, plugin=True) == [], path.name
 
 
-def test_the_demo_runs_nothing_of_its_own_beside_the_show(demo):
+def test_the_demo_runs_nothing_of_its_own_beside_the_show():
     """No page, no supervisor, no server of the demo's: the script waits on ShowRunner."""
     tree = ast.parse(DEMO.read_text(encoding="utf-8"))
     imported = {alias.name.split(".")[0] for node in ast.walk(tree)
@@ -368,7 +368,7 @@ def test_the_stagehand_refuses_what_it_cannot_reach(tmp_path, action, error):
     assert backstage.knocked == [] and not (tmp_path / "beat-box.device").exists()
 
 
-def test_a_member_the_show_keeps_running_is_knocked_over_and_brought_back(tmp_path):
+def test_a_member_the_show_keeps_running_is_knocked_over_and_brought_back():
     from hearth_demo import backstage
 
     show = backstage.Show({"hub": "http://127.0.0.1:9", "members": [
@@ -473,13 +473,13 @@ def test_the_stagehand_is_hosted_in_the_hub_and_reaches_the_show_that_is_running
 
 
 def test_the_checks_say_whether_the_hub_s_coordinator_is_still_the_template(tmp_path):
-    """Mutation: the verdict and the finding swapped, as a page of the demo's once showed them
-    -- red here."""
+    """Mutation: the verdict and the finding swapped -- red here."""
     from hearth_demo import backstage
 
     copy = tmp_path / "coordinator.py"
     hearth_root = DEMO.parents[1]
-    template = (hearth_root / copies.TEMPLATE).read_text(encoding="utf-8")
+    # The template as HEAD holds it, as fork takes it: an edit not yet committed is not it.
+    template = copies._git(hearth_root, "show", f"HEAD:{copies.TEMPLATE}")
     head = (copies._git(hearth_root, "rev-parse", "--short=12", "HEAD") or "").strip()
     copy.write_text(template.replace(copies.ORIGIN, copies.LINE.format(
         revision=head, digest=copies.digest(template))), encoding="utf-8")

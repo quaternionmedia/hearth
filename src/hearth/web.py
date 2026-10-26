@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -48,10 +48,8 @@ def following(member: Member) -> tuple[asyncio.Queue, Callable[[], None]]:
         queue.put_nowait(snapshot)
 
     def follower(snapshot: dict) -> None:
-        try:
+        with suppress(RuntimeError):  # the loop has closed
             loop.call_soon_threadsafe(put, snapshot)
-        except RuntimeError:  # the loop has closed
-            pass
 
     return queue, member.follow(follower)
 

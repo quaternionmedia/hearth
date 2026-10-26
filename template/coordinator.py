@@ -1,17 +1,13 @@
 """A family's coordinator: whatever fires, delivered to the members its family block names.
 
 **Origin.** hearth's coordinator template, ``template/coordinator.py``, for
-the family contract ``family/1``. An exemplar copies this file whole and puts
-what is its own, what fires and where the coordinator runs, in a module beside
-it that imports it. It imports nothing of hearth, so neither does the
-exemplar. ``hearth fork PATH`` makes the copy and later takes a newer template
-into it. In the copy, the line below names the hearth revision it was taken at
-and the template's text there, by the first sixteen hex digits of its sha256,
-so the exemplar's own tests can show the copy unchanged with nothing of hearth
-installed; ``hearth check --copy PATH`` says so too, and whether the template
-has changed since, and ``hearth check --hub URL`` judges the running exemplar.
-What an exemplar needs changed here is changed in the template, so every
-exemplar can take it.
+the family contract ``family/1``. An exemplar copies it whole with
+``hearth fork`` and keeps what is its own, what fires and where the
+coordinator runs, in a module beside it; it imports nothing of hearth. In a
+copy, the line below names the hearth revision and this text's digest, and
+``hearth check --copy`` says whether the copy is still the template. Change
+the template, never a copy, so every exemplar can take the change (hearth's
+``docs/coordinator.md``).
 
 Copied from: this is the template.
 
@@ -57,6 +53,7 @@ it. Every request has a timeout.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -150,7 +147,7 @@ class Coordinator:
                          for name in self.members}
         # What each push member last said it is; None until it has said, and
         # again after a delivery that failed, since it may have restarted.
-        self._identity: dict[str, dict | None] = {name: None for name in self.members}
+        self._identity: dict[str, dict | None] = dict.fromkeys(self.members)
         self._futures: list[Future] = []
 
     # --- something fires ----------------------------------------------------
@@ -417,10 +414,8 @@ def router(coordinator: Callable[[], Coordinator | None], hub: Callable[[], dict
         landed = asyncio.Event()
 
         def tell() -> None:  # any thread
-            try:
+            with contextlib.suppress(RuntimeError):  # the loop has closed
                 loop.call_soon_threadsafe(landed.set)
-            except RuntimeError:  # the loop has closed
-                pass
 
         unfollow = running.follow(name, tell)
 

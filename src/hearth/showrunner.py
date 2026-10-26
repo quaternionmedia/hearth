@@ -115,7 +115,7 @@ def plugin(make: Callable[[dict], Member], *, name: str, family: str,
                 try:
                     member = make(self._settings)
                     member.start()
-                except Exception as exc:  # noqa: BLE001 -- not ready, never the hub's failure
+                except Exception as exc:  # not ready, never the hub's failure
                     cap = RETRY_CAP if retry_cap is None else retry_cap
                     wait = min(RETRY_FIRST * 2 ** (self.tries - 1), cap)
                     reason = f"{name} is not ready: {type(exc).__name__}: {exc}"

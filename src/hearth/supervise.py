@@ -23,6 +23,7 @@ stopped counts from the start again.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -70,21 +71,18 @@ class Watched:
     exits: list[int] = field(default_factory=list)
 
 
-def _kill_tree(process: subprocess.Popen) -> None:
+def kill_tree(process: subprocess.Popen) -> None:
+    """Stop ``process`` and every process it started, as a crash would."""
     if process.poll() is not None:
         return
     if sys.platform == "win32":
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)],
                        capture_output=True, check=False)
     else:
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-    try:
+    with contextlib.suppress(subprocess.TimeoutExpired):
         process.wait(10)
-    except subprocess.TimeoutExpired:
-        pass
 
 
 class Supervisor:
@@ -128,7 +126,7 @@ class Supervisor:
         self._stop.set()
         for watched in self.watched.values():
             if watched.process is not None:
-                _kill_tree(watched.process)
+                kill_tree(watched.process)
         for thread in self._threads:
             thread.join(15)
 
@@ -136,14 +134,16 @@ class Supervisor:
 
     def _launch(self, watched: Watched) -> subprocess.Popen:
         spec = watched.spec
-        out = (open(self.logs / f"{spec.name}.log", "ab") if self.logs is not None  # noqa: SIM115
-               else subprocess.DEVNULL)
         flags = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} \
             if sys.platform == "win32" else {"start_new_session": True}
         env = {key: value for key, value in {**os.environ, **(spec.env or {})}.items()
                if value is not None}
-        return subprocess.Popen(spec.command, cwd=spec.cwd, env=env,
-                                stdout=out, stderr=subprocess.STDOUT, **flags)
+        with contextlib.ExitStack() as held:
+            # The child holds the log open for itself; this process's handle closes here.
+            out = (held.enter_context(open(self.logs / f"{spec.name}.log", "ab"))
+                   if self.logs is not None else subprocess.DEVNULL)
+            return subprocess.Popen(spec.command, cwd=spec.cwd, env=env,
+                                    stdout=out, stderr=subprocess.STDOUT, **flags)
 
     def _identity(self, client: httpx.Client, spec: Spec) -> dict | None:
         try:
@@ -177,7 +177,7 @@ class Supervisor:
                     if time.monotonic() > deadline:
                         self.log(f"supervise: {name} did not answer within "
                                  f"{self.up_within:g}s; stopping it to start again")
-                        _kill_tree(process)
+                        kill_tree(process)
                         break
                     time.sleep(0.25)
                 while not self._stop.is_set() and process.poll() is None:

@@ -18,6 +18,7 @@ not the digits.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import statistics
@@ -197,13 +198,11 @@ def fails_to_start() -> None:
         try:
             hub.startup()
             hosted = "the hub started"
-        except Exception as exc:  # noqa: BLE001 -- the outcome is the measurement
+        except Exception as exc:  # the outcome is the measurement
             hosted = f"the hub's startup raised {type(exc).__name__}: {exc}"
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 hub.shutdown()
-            except Exception:  # noqa: BLE001, S110
-                pass
     print(f"  hosted in the hub: {hosted}")
 
     hub = coordinator.Coordinator(members={"broken": "http://127.0.0.1:9"}, timeout=2)
@@ -248,7 +247,7 @@ def blocking_page() -> None:
 
     @page.get("/clock/slow")
     async def slow_page():
-        time.sleep(2)  # noqa: ASYNC251 -- the mistake under test: blocking an async route
+        time.sleep(2)  # the mistake under test: blocking an async route
         return {"ok": True}
 
     def probe(hub_url: str, page_url: str) -> float:
