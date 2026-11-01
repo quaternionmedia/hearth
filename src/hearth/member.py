@@ -11,8 +11,8 @@ block. Every member answers the same four routes, whatever serves them
                            500 {"ok": false, "error": "..."}  failed acting on it
     GET  /family/state     {"member": name, "cue": {...} | null, "state": {...}}
     GET  /family/events    text/event-stream: the state now, then at every change
-    GET  /family/identity  {"member", "family", "version", "contract", "verbs",
-                            "instance", "pid"}
+    GET  /family/identity  {"member", "family", "version", "contract", "conformance",
+                            "verbs", "instance", "pid"}
 
 A subclass says what an action changes and what its state is. The envelope,
 the refusal, the record of the last cue and telling every follower are here,
@@ -33,6 +33,7 @@ from collections.abc import Callable
 from typing import Any, ClassVar
 
 CONTRACT = "family/1"
+CONFORMANCE = "0.0.1"  # the version of the contract's vector set this library replays
 
 Change = Callable[[], None]
 Follower = Callable[[dict], None]
@@ -150,8 +151,8 @@ class Member(ABC):
     def identity(self) -> dict:
         """What this member is, so a reader can tell it from anything else answering the port."""
         return {"member": self.name, "family": self.family, "version": self.version,
-                "contract": CONTRACT, "verbs": list(self.verbs),
-                "instance": self.instance, "pid": os.getpid()}
+                "contract": CONTRACT, "conformance": CONFORMANCE,
+                "verbs": list(self.verbs), "instance": self.instance, "pid": os.getpid()}
 
     # --- followers ---------------------------------------------------------
 

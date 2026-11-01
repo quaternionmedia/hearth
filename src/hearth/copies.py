@@ -45,7 +45,7 @@ OFF_MACHINE = re.compile(r"^(https?|ssh|git)://|^[\w.-]+@[\w.-]+:")
 # Every text the template has had since a copy's line named it by digest, oldest
 # first. A commit that changes the template adds its digest here, and a test is
 # red until it does, so a release of hearth knows every template up to its own.
-KNOWN = ("daa4d36d4c5344f1", "81dd6354d2f5c4eb")
+KNOWN = ("daa4d36d4c5344f1", "81dd6354d2f5c4eb", "c40833899e4ec67a")
 
 
 @dataclass

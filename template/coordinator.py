@@ -74,6 +74,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 CONTRACT = "family/1"  # the contract this coordinator keeps, both sides of it
+CONFORMANCE = "0.0.1"  # the version of the contract's vector set this coordinator replays
 
 DEFAULT_TIMEOUT = 5.0  # seconds per delivery
 KEPT = 200  # outcomes listed at GET /family/, oldest dropped first
@@ -97,8 +98,8 @@ INSTANCE = uuid4().hex[:12]
 def identity(hub: str, family: str, version: str = "0") -> dict:
     """What a coordinator is, as ``GET /family/identity`` answers: its exemplar, the
     family it coordinates, the contract it keeps, and which running instance it is."""
-    return {"hub": hub, "family": family, "contract": CONTRACT, "version": version,
-            "instance": INSTANCE, "pid": os.getpid()}
+    return {"hub": hub, "family": family, "contract": CONTRACT, "conformance": CONFORMANCE,
+            "version": version, "instance": INSTANCE, "pid": os.getpid()}
 
 
 @cache

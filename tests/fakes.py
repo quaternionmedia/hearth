@@ -91,6 +91,7 @@ class FakeMember:
                 if self.path == "/family/identity":
                     return self.answer(200, {"member": member.name, "family": "test",
                                              "contract": "family/1",
+                                             "conformance": "0.0.1",
                                              "instance": member.instance})
                 return self.answer(200, {"member": member.name, "cue": member.cue,
                                          "state": {"seen": len(member.received)}})

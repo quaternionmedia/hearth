@@ -15,6 +15,6 @@ judges any of them, and ``hearth check --hub URL`` a coordinator, in any
 language, by the routes alone.
 """
 
-from .member import CONTRACT, Member, Refused, shown
+from .member import CONFORMANCE, CONTRACT, Member, Refused, shown
 
-__all__ = ["CONTRACT", "Member", "Refused", "shown"]
+__all__ = ["CONFORMANCE", "CONTRACT", "Member", "Refused", "shown"]

@@ -114,6 +114,22 @@ def test_the_template_keeps_the_contract_hearth_s_members_keep():
     assert coordinator.CONTRACT == hearth.CONTRACT
 
 
+def test_the_template_replays_the_vector_set_version_hearth_s_members_replay():
+    """Both sides name one coordinate, and the publisher's own pin is its vector set's version.
+
+    Mutation: ``CONFORMANCE = "0.0.2"`` in the template, or in ``conformance/vectors.json``
+    alone -- red here.
+    """
+    import json
+    from pathlib import Path
+
+    import hearth
+
+    vectors = Path(hearth.__file__).resolve().parents[2] / "conformance" / "vectors.json"
+    assert coordinator.CONFORMANCE == hearth.CONFORMANCE
+    assert json.loads(vectors.read_text(encoding="utf-8"))["version"] == hearth.CONFORMANCE
+
+
 # --- push --------------------------------------------------------------------
 
 def test_a_push_member_is_sent_the_cue_and_its_action(fake_member, hub):

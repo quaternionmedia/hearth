@@ -283,7 +283,7 @@ def stand_in_hub(lenient: bool = False) -> FastAPI:
     @api.get("/family/identity")
     def identity():
         return {"hub": "stand-in", "family": "show-control", "contract": "family/1",
-                "instance": "i1"}
+                "conformance": "0.0.1", "instance": "i1"}
 
     @api.get("/family/")
     def audit():

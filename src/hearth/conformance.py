@@ -106,6 +106,9 @@ def check(url: str, action: dict | None = None, timeout: float = 5.0) -> Report:
         for key in ("member", "family", "instance"):
             report.add(isinstance(identity.get(key), str) and identity[key],
                        f"identity names its {key}", identity.get(key))
+        report.add(isinstance(identity.get("conformance"), str) and identity["conformance"],
+                   "identity names the conformance version it replayed",
+                   identity.get("conformance"))
         name = identity.get("member")
 
         said = client.get(f"{base}/family/state")
@@ -222,6 +225,9 @@ def check_hub(url: str, pull: str | None = None, timeout: float = 5.0) -> Report
         for key in ("hub", "family", "instance"):
             report.add(isinstance(identity.get(key), str) and identity[key],
                        f"the hub's identity names its {key}", identity.get(key))
+        report.add(isinstance(identity.get("conformance"), str) and identity["conformance"],
+                   "the hub's identity names the conformance version it replayed",
+                   identity.get("conformance"))
 
         said = client.get(f"{base}/family/")
         audit = _json(said)

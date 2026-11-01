@@ -15,7 +15,7 @@ All under the member's base URL: its own origin when it is served alone,
 | `POST /family/cue` | the hub delivers one cue's action, below |
 | `GET /family/state` | `{"member": name, "cue": cue \| null, "state": {...}}` |
 | `GET /family/events` | `text/event-stream`: one `state` event carrying the same object at once, then one per change |
-| `GET /family/identity` | `{"member", "family", "version", "contract": "family/1", "verbs": [...], "instance", "pid"}` |
+| `GET /family/identity` | `{"member", "family", "version", "contract": "family/1", "conformance", "verbs": [...], "instance", "pid"}` |
 
 The three `GET` routes are readable from any origin
 (`Access-Control-Allow-Origin: *`); a follower is often a page in another one.
@@ -65,7 +65,7 @@ A hub is a coordinator running in its exemplar's app
 
 | Route | Answer |
 |---|---|
-| `GET /family/identity` | `{"hub", "family", "contract": "family/1", "version", "instance", "pid"}` |
+| `GET /family/identity` | `{"hub", "family", "contract": "family/1", "conformance", "version", "instance", "pid"}` |
 | `GET /family/` | each member, how it is reached (`push`, `pull` or `local`), and every recent delivery's outcome: status, error, milliseconds from the fire to the answer |
 | `GET /family/members/<name>` | for a pull member: `{"cue", "action"}`, the last cue that named it |
 | `GET /family/members/<name>/events` | the same, as a `text/event-stream` of `action` events |
@@ -99,3 +99,7 @@ carries a development version until a tag is cut. `hearth check` is hearth's
 own runner of the set; an implementation in another language replays the same
 cases with a runner of its own and prints one line in the shape the registry
 names, so a run says what it covered.
+
+An instance names the version it replayed as `conformance` on its identity,
+member and hub alike, beside `contract`, the wire generation it keeps, and
+`version`, which stays the app's own.
