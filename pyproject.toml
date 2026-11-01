@@ -39,6 +39,8 @@ pythonpath = ["tests", "demo/plugins"]
 
 [tool.ruff]
 line-length = 100
+# The corpus is vendored at governance/qm and linted by its own gates, not these.
+extend-exclude = ["governance"]
 
 [tool.ruff.lint]
 # As strict as ShowRunner's, so the template passes in the exemplar that copies it.

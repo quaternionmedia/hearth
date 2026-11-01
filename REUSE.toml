@@ -15,3 +15,21 @@ path = "**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2026 Quaternion Media"
 SPDX-License-Identifier = "MPL-2.0"
+
+# --- Copy-forward prose templates (the outbound record's clause 2) ----------
+# Carried verbatim from the corpus's project-seed/ide and meant to be copied
+# onward; they keep the licence they had in the corpus.
+[[annotations]]
+path = ["AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"]
+precedence = "override"
+SPDX-FileCopyrightText = "Copyright (c) 2026 Quaternion Media"
+SPDX-License-Identifier = "CC0-1.0"
+
+# --- Executable seed files (clause 3) ----------------------------------------
+# The seed's workflows and editor configuration, copied verbatim from the
+# corpus's project-seed/ci and project-seed/ide/.vscode.
+[[annotations]]
+path = [".github/workflows/*.yml", ".vscode/settings.json", ".vscode/extensions.json"]
+precedence = "override"
+SPDX-FileCopyrightText = "Copyright (c) 2026 Quaternion Media"
+SPDX-License-Identifier = "Apache-2.0"
