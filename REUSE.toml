@@ -1,0 +1,17 @@
+version = 1
+SPDX-PackageName = "qm-hearth"
+SPDX-PackageSupplier = "Quaternion Media <peter.kagstrom@gmail.com>"
+SPDX-PackageDownloadLocation = "https://github.com/quaternionmedia/hearth"
+
+# Licensing is declared here rather than as per-file SPDX headers, as the qm
+# corpus and rad do: the coordinator template is copied whole into an exemplar
+# and checked by its digest, so a header in it would be a header in every copy,
+# and the walkthrough pages run as doctests whose opening lines are read.
+# See governance/qm/records/DRAFT-outbound-licensing.md in the corpus, whose
+# clause 6 licenses an embeddable library MPL-2.0, named per library.
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2026 Quaternion Media"
+SPDX-License-Identifier = "MPL-2.0"
