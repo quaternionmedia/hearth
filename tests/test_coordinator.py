@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import threading
 
-import coordinator  # the template, where it stands; an exemplar copies it
+from hearth import coordinator  # one text: imported, as an exemplar with the dependency does
 import httpx
 import pytest
 from fakes import FakeMember, dead_url

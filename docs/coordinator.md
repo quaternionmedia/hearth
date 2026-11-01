@@ -1,11 +1,15 @@
-# The coordinator template
+# The coordinator
 
 A coordinator delivers each fire's family block to the members it names, and
-keeps what each answered. hearth holds it as a template,
-[`template/coordinator.py`](../template/coordinator.py), outside the package.
-An app that coordinates a family, an **exemplar**, runs the template: it copies
-the file whole, and writes what is its own in a module beside the copy. The
-template imports nothing of hearth, so neither does the exemplar.
+keeps what each answered. hearth holds it as one text,
+[`src/hearth/coordinator.py`](../src/hearth/coordinator.py), run two ways. An
+app that coordinates a family, an **exemplar**, either depends on `qm-hearth`
+at a version and imports it, `from hearth import coordinator`, or, where its
+maintainer takes no dependency, copies the file whole with `hearth fork`.
+Either way it writes what is its own in a module beside it. The text imports
+nothing else of hearth, so a copy stands alone and its exemplar imports
+nothing of hearth. A copy's source is the template, and the rest of this page
+is about copies.
 
 The template is where the coordinator changes. A copy is the template's text
 but for its `Copied from:` line, which names the hearth revision it was taken at
@@ -39,7 +43,28 @@ Three facts about a copy are mechanical, at three strengths:
 | The members in its own process | members of `show-control`, from `showrunner_family_members` | none |
 | What it is | `showrunner`, of `show-control` | `looper`, of `instruments` |
 
+## Importing it
+
+An exemplar that depends on `qm-hearth` imports the coordinator and supplies
+the same five things a copy's exemplar does, with no line to hold to:
+
+```python
+from hearth import coordinator
+
+running = coordinator.from_table(settings, local=hosted, table="[looper.family]")
+app.include_router(coordinator.router(
+    lambda: running, lambda: coordinator.identity("looper", "instruments", version),
+    table="[looper.family]"))
+```
+
+A fix reaches it at its next dependency bump, and the version it pins names
+the contract's conformance version too ([`contract.md`](contract.md)).
+`hearth check --hub URL` judges it as it judges a copy's exemplar.
+
 ## Forking it
+
+For a hub whose maintainer takes no dependency on hearth, ShowRunner among
+them, the text is copied whole and held to its line.
 
 1. From hearth's checkout, write the template into the exemplar:
 

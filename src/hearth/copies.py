@@ -1,6 +1,6 @@
 """Is an exemplar's coordinator hearth's template? ``hearth fork`` and ``hearth check --copy``.
 
-A copy of ``template/coordinator.py`` is the template's text but for its
+A copy of ``hearth/coordinator.py`` is the template's text but for its
 ``Copied from:`` line (``LINE``), which names the hearth revision it was taken
 at and that text's digest, the first sixteen hex digits of its sha256.
 
@@ -34,7 +34,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 CANNOT_SAY = 3
-TEMPLATE = "template/coordinator.py"
+TEMPLATE = "src/hearth/coordinator.py"
+# Where the template stood before, so a copy naming an older revision still reads.
+EARLIER_PATHS = ("template/coordinator.py",)
 ORIGIN = "Copied from: this is the template."
 LINE = "Copied from: hearth {revision}, sha256 {digest}."
 NAMED = re.compile(r"^Copied from: hearth ([0-9a-f]{7,40}), sha256 ([0-9a-f]{16})\.$",
@@ -45,7 +47,8 @@ OFF_MACHINE = re.compile(r"^(https?|ssh|git)://|^[\w.-]+@[\w.-]+:")
 # Every text the template has had since a copy's line named it by digest, oldest
 # first. A commit that changes the template adds its digest here, and a test is
 # red until it does, so a release of hearth knows every template up to its own.
-KNOWN = ("daa4d36d4c5344f1", "81dd6354d2f5c4eb", "c40833899e4ec67a")
+KNOWN = ("daa4d36d4c5344f1", "81dd6354d2f5c4eb", "c40833899e4ec67a",
+         "4377c038ac23d90b")
 
 
 @dataclass
@@ -64,6 +67,15 @@ class Copy:
 def digest(template: str) -> str:
     """The template's text, as the copy's line names it: its sha256's first sixteen hex digits."""
     return hashlib.sha256(template.encode("utf-8")).hexdigest()[:16]
+
+
+def template_at(root: Path, revision: str) -> str | None:
+    """The template's text at a revision, wherever it stood then."""
+    for path in (TEMPLATE, *EARLIER_PATHS):
+        text = _git(root, "show", f"{revision}:{path}")
+        if text is not None:
+            return text
+    return None
 
 
 def checkout() -> Path | None:
@@ -129,7 +141,7 @@ def check(path: str | Path, root: Path | None = None,
     root = _history(checkout() if root is None else root)
     full = (_git(root, "rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}") or ""
             ).strip() if root else ""
-    then = _git(root, "show", f"{full}:{TEMPLATE}") if root and full.startswith(revision) \
+    then = template_at(root, full) if root and full.startswith(revision) \
         else None
     if then is None:
         # Nothing here holds the revision: the digest is all there is to go by.
@@ -170,7 +182,8 @@ def check(path: str | Path, root: Path | None = None,
     if _git(root, "merge-base", "--is-ancestor", full, "HEAD") is None:
         return Copy(path, 0, f"is the template at {revision}, which hearth's HEAD does not "
                              f"descend from{late}", revision, outside=True, published=published)
-    since = (_git(root, "log", "--format=%h %s", f"{full}..HEAD", "--", TEMPLATE)
+    since = (_git(root, "log", "--format=%h %s", f"{full}..HEAD", "--", TEMPLATE,
+                  *EARLIER_PATHS)
              or "").splitlines()
     return Copy(path, 0, f"is the template at {revision}; the template has changed since{late}",
                 revision, since=since, published=published)

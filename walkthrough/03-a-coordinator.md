@@ -5,16 +5,16 @@
 > history.
 
 A coordinator is the other side of the contract: something fires, and it hands
-each member the part of the family block that names it. hearth holds it as a
-template, `template/coordinator.py`, which an exemplar copies whole and runs
-beside its own code; this page imports it where it stands, as hearth's tests do. It
+each member the part of the family block that names it. hearth holds it as one
+text, `hearth.coordinator`, which an exemplar imports from `qm-hearth` or
+copies whole, and runs beside its own code; this page imports it. It
 is an exemplar at its smallest, a looper whose downbeat is what fires, with a
 clock hosted in its process and a page that reads its action, and shows what
 the coordinator keeps.
 
 ```python
 >>> import hearth
->>> import coordinator
+>>> from hearth import coordinator
 >>> class Clock(hearth.Member):
 ...     name, family, verbs = "clock", "instruments", ("clock",)
 ...     laps = 0
@@ -81,8 +81,8 @@ has both, and how ShowRunner supplies what this looper did.
 
 ## A copy of it
 
-An exemplar does not import the template: it copies it whole with
-`hearth fork`, which writes the template as committed at hearth's `HEAD` and
+An exemplar whose maintainer takes no dependency on hearth copies the text
+whole instead, with `hearth fork`, which writes the template as committed at hearth's `HEAD` and
 names that revision, and the template's text by its digest, in the copy's
 `Copied from:` line. `hearth check --copy` says whether a copy is still the
 template:
