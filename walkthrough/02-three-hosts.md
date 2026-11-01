@@ -4,11 +4,10 @@
 > 127.0.0.1 in this process and stopped before the page ends. No browser, and
 > nothing outside this machine.
 
-The member from the previous page, served three ways, and held to the
-contract by the same check each time. `hearth check` asks the routes and nothing
-else, so it judges a member in any language under any host, and with an
-action it sends one real cue and waits for the event that carries it to a
-follower.
+The member from the previous page, served three ways and held to the contract
+by the same check each time. `hearth check` asks the routes and nothing else,
+so it judges a member in any language under any host; given an action, it
+sends one real cue and waits for the event that carries it to a follower.
 
 ```python
 >>> import hearth
@@ -46,8 +45,8 @@ lifespan:
 
 ## Beside an aiohttp page
 
-A page already served by aiohttp, as ShowStopper's is by textual-serve, takes
-the routes, the lifecycle, and its streams closed at shutdown, from one call:
+A page aiohttp already serves, as textual-serve serves ShowStopper's, takes
+the routes, the lifecycle and its streams' close at shutdown from one call:
 
 ```python
 >>> from aiohttp import web as aioweb
@@ -95,10 +94,10 @@ The same check, at the hub's address, passes the same way.
 
 ## Only the hub's own family
 
-Two families meet across a protocol, never an import. A member of another
-family is served alone and named to the hub by its URL. The hub says which
-family it is in, and the hosted plugin reads it from the hub at startup; a
-member of another family is never made, and its routes say why:
+Two families meet across a protocol, never an import: a member of another
+family is served alone and named to the hub by its URL. The plugin reads the
+hub's family at startup, never makes a member of another, and its routes say
+why:
 
 ```python
 >>> with testing.showrunner_hub(family="show-control") as hub:

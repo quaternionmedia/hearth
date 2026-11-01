@@ -1,7 +1,7 @@
 # The demo
 
-The demo is a show, Loopback: ShowRunner, by its own command, on a show whose
-nine cues each show a part of the arrangement, each a round trip through the
+The demo is a show, Loopback: ShowRunner, run by its own command, on nine
+cues that each show one part of the arrangement as a round trip through the
 hub. Nothing of the demo's own runs beside it.
 
 ```bash
@@ -9,19 +9,19 @@ uv run python demo/loopback.py --dev <dev>
 ```
 
 `<dev>` holds the member checkouts on their family branches: ShowRunner,
-ShowStopper, carlos, joe and leo. The script writes the hub's show.toml and
-runs ShowRunner in the foreground; open `http://127.0.0.1:18700/script` for
-the script with its cues, and press GO at `http://127.0.0.1:18700/programmer`.
-It prints each member's page. Each run starts from an empty `--work`
-directory, and refuses to empty one it did not make or to start while its
-ports are in use. Ctrl+C stops the show, and with it every member it started.
+ShowStopper, carlos, joe and leo. The script writes the hub's show.toml, runs
+ShowRunner in the foreground and prints each member's page; the script with
+its cues is at `http://127.0.0.1:18700/script`, and GO is at
+`http://127.0.0.1:18700/programmer`. A run starts from an empty `--work`
+directory, refuses to empty one it did not make, and refuses to start while
+its ports are in use. Ctrl+C stops the show and every member it started.
 
 ## The show
 
-[`demo/show/`](../demo/show) is the show: `loopback.fountain`, its script, and
-`cues.toml`, its cues. Each cue sits on the line of the script it begins with;
-its notes say what to look for, and its family block is what GO fires. The
-show is made through the hub's own routes at its first start.
+[`demo/show/`](../demo/show) is the show: `loopback.fountain`, the script, and
+`cues.toml`, the cues. Each cue sits on the script line it begins with, its
+notes say what to look for, and its family block is what GO fires. The show
+is made through the hub's own routes at first start.
 
 | Cue | On the line | What it shows |
 |---|---|---|
@@ -54,10 +54,10 @@ What each cue did is in the hub's audit at `/family/`, and the stagehand's
 acts and the checks' verdicts are its state at `/stagehand/family/state` and
 lines in ShowRunner's log.
 
-**Nothing of ShowRunner is imported or changed.** The hub's run adds hearth,
-the demo's plugins and ShowStopper to ShowRunner's environment for that run
-alone (`uv run --with-editable`), and ShowRunner finds them as it finds any
-installed plugin. Its show.toml sets each up as any show's would:
+**Nothing of ShowRunner is imported or changed.** The run adds hearth, the
+demo's plugins and ShowStopper to ShowRunner's environment for that run alone
+(`uv run --with-editable`), and ShowRunner finds them as it finds any installed
+plugin. Its show.toml sets each up as any show's would:
 `[plugins.family]` names the members, `[plugins.metronome]` the metronome's
 device, `[plugins.stagehand.devices]` what the stagehand may plug in,
 `[plugins.loopback]` the show's script, cues and the members it keeps running,
@@ -67,9 +67,9 @@ ShowRunner, by name or otherwise, edits `sys.path`, sets an attribute on a
 module, or runs anything of its own beside the show, or if what runs inside
 the hub, the demo's plugins and hearth's host, sets one.
 
-The hub stops its members when it stops, since its plugin keeps them; a hub
-that should outlive a crash of its own is its machine's service manager's to
-keep, not the show's.
+The hub stops its members when it stops, since its plugin keeps them. A hub
+that should outlive its own crash is the machine's service manager's to keep,
+not the show's.
 
 ## Its ports
 
