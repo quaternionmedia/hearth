@@ -1,13 +1,15 @@
 """A family's coordinator: whatever fires, delivered to the members its family block names.
 
-**Origin.** hearth's coordinator template, ``template/coordinator.py``, for
-the family contract ``family/1``. An exemplar copies it whole with
-``hearth fork`` and keeps what is its own, what fires and where the
-coordinator runs, in a module beside it; it imports nothing of hearth. In a
-copy, the line below names the hearth revision and this text's digest, and
-``hearth check --copy`` says whether the copy is still the template. Change
-the template, never a copy, so every exemplar can take the change (hearth's
-``docs/coordinator.md``).
+**Origin.** hearth's coordinator, ``hearth/coordinator.py``, for the family
+contract ``family/1``: one text, run two ways. An exemplar that depends on
+``qm-hearth`` imports it, ``from hearth import coordinator``; one whose
+maintainer takes no dependency copies it whole with ``hearth fork``. Either
+keeps what is its own, what fires and where the coordinator runs, in a module
+beside it, and this text imports nothing else of hearth, so a copy stands
+alone. In a copy, the line below names the hearth revision and this text's
+digest, and ``hearth check --copy`` says whether the copy is still the
+template. Change this text, never a copy, so every exemplar can take the
+change (hearth's ``docs/coordinator.md``).
 
 Copied from: this is the template.
 
