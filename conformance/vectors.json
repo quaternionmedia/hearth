@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "contract": "family/1",
+  "version": "0.0.1",
+  "reading": {
+    "version_is": "the coordinate every repository on family/1 shares (records/DRAFT-a-shared-tag-asserts-interoperability.md in the corpus): an implementation pins the version it replayed in its own suite, and `uv run qm interop` compares each pin against this one",
+    "cases_are": "what `hearth check` asserts, by side, in the order it asks; a case with `needs` is asked only when the runner is given it",
+    "a_tag": "hearth tags a version only once every repository on the surface has replayed it"
+  },
+  "member": [
+    {"id": "identity-answers", "asks": "GET /family/identity answers"},
+    {"id": "identity-is-an-object", "asks": "GET /family/identity is 200 with an object"},
+    {"id": "identity-keeps-contract", "asks": "it keeps contract family/1"},
+    {"id": "identity-names-member", "asks": "identity names its member"},
+    {"id": "identity-names-family", "asks": "identity names its family"},
+    {"id": "identity-names-instance", "asks": "identity names its instance"},
+    {"id": "state-shape", "asks": "GET /family/state is {member, cue, state} for the same member"},
+    {"id": "cue-not-json-refused", "asks": "a body that is not JSON is refused 422 with its error"},
+    {"id": "cue-unknown-action-refused", "asks": "an action it does not take is refused 422 with its error"},
+    {"id": "refused-cue-changes-nothing", "asks": "a refused cue changes nothing, the record of the last cue included"},
+    {"id": "events-state-at-once", "asks": "GET /family/events streams the state at once"},
+    {"id": "action-taken", "asks": "the action {action} is taken", "needs": "action"},
+    {"id": "cue-reaches-follower", "asks": "the cue reaches a follower as an event", "needs": "action"}
+  ],
+  "hub": [
+    {"id": "identity-answers", "asks": "GET /family/identity answers"},
+    {"id": "identity-keeps-contract", "asks": "the hub keeps contract family/1"},
+    {"id": "identity-names-hub", "asks": "the hub's identity names its hub"},
+    {"id": "identity-names-family", "asks": "the hub's identity names its family"},
+    {"id": "identity-names-instance", "asks": "the hub's identity names its instance"},
+    {"id": "audit-lists-members-and-deliveries", "asks": "GET /family/ lists the members and the recent deliveries"},
+    {"id": "unknown-member-has-no-route", "asks": "a name the hub's table does not hold has no members route"},
+    {"id": "pull-member-shape", "asks": "GET /family/members/{pull} is {cue, action}", "needs": "pull"},
+    {"id": "pull-member-events-at-once", "asks": "GET /family/members/{pull}/events streams the action at once", "needs": "pull"}
+  ]
+}

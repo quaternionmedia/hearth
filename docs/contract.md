@@ -83,3 +83,19 @@ reachable at `<hub>/<name>/family/*`.
 and answers 2xx at its URL only once it can be checked. `check --url URL`
 runs the member's own behavioural check against an instance already up: exit
 0 pass, 1 fail, any other status could not say.
+
+## Conformance and its version
+
+The contract is measured by its vector set,
+[`conformance/vectors.json`](../conformance/vectors.json): the cases
+`hearth check` asserts, member side and hub side, under one `version`. That
+version is the coordinate every repository on `family/1` shares, as the
+corpus's `records/DRAFT-a-shared-tag-asserts-interoperability.md` decides: a
+member or a hub pins, in its own suite, the version it replayed, the corpus's
+`ci/interop-registry.yaml` names where each pin is read, and `uv run qm interop`
+says where a pin and the publisher's version differ. hearth tags a version only
+once every repository on the surface has replayed it, and `pyproject.toml`
+carries a development version until a tag is cut. `hearth check` is hearth's
+own runner of the set; an implementation in another language replays the same
+cases with a runner of its own and prints one line in the shape the registry
+names, so a run says what it covered.
