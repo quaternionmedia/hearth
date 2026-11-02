@@ -2,9 +2,8 @@
 
 A member answers [the contract](contract.md) the same way under every host;
 which host serves it is a deployment choice. A part that adds to the hub's own
-data and pages instead, such as a layer type or a chip under a cue, is a
-ShowRunner plugin on ShowRunner's hooks, and hearth has nothing to say about
-it.
+data or pages, such as a layer type or a chip under a cue, is a ShowRunner
+plugin on ShowRunner's hooks, and hearth has nothing to say about it.
 
 | Host | Call | Serves the routes at | Lifecycle |
 |---|---|---|---|
@@ -13,18 +12,18 @@ it.
 | Inside ShowRunner | `hearth.showrunner.plugin(make, name=..., family=...)` | `<hub>/<name>` | made at the hub's startup from `[plugins.<name>]`, stopped at its shutdown |
 
 `hearth.web.router(member)` is the four routes alone, for a FastAPI app that
-already exists. `member` may be a callable returning the member, for an app
-that makes it after the routes mount; until it does, they answer 503. FastAPI
-keeps an included router as one entry in `app.routes`, so code that lists an
-app's routes finds hearth's with `fastapi.routing.iter_route_contexts`.
-
-`walkthrough/02-three-hosts.md` runs all three hosts against one check.
+exists already; `member` may be a callable that returns the member once the
+app has made it, and the routes answer 503 until then. FastAPI keeps an
+included router as one entry in `app.routes`, and
+`fastapi.routing.iter_route_contexts` lists hearth's routes among an app's.
+[`walkthrough/02-three-hosts.md`](../walkthrough/02-three-hosts.md) runs all
+three hosts against one check.
 
 ## Which host, by family
 
-A hub hosts in its process only members of its own family. A member of
-another family is served alone and named to the hub by its URL, and `plugin`
-refuses the other case.
+A hub hosts in its process only members of its own family. `plugin` refuses
+any other, and a member of another family is served alone and named to the
+hub by its URL.
 
 | Family | Its coordinator | A member is |
 |---|---|---|
@@ -34,16 +33,16 @@ refuses the other case.
 
 A member with a device or a native library is served alone whatever its
 family: a crash in either, a page that blocks the event loop, or a dependency
-the hub cannot share takes a hosted member's hub down with it, and no code can
-catch that. `bench/hosting.py` breaks a member each of these ways, hosted and
-alone.
+the hub cannot share takes a hosted member's hub down with it, and no code
+catches that. `bench/hosting.py` breaks a member each of these ways, hosted
+and alone.
 
 ## Inside ShowRunner
 
 Register the plugin under the `showrunner` entry-point group. ShowRunner's
-loader calls `ep.load()` and makes the result only when it is a class, so the
-entry point names a module attribute that **is** the plugin, made when its
-module is imported, and imported only by a hub loading its plugins:
+loader calls `ep.load()` and instantiates the result only when it is a class,
+so the entry point names a module attribute that **is** the plugin, made when
+its module is imported, and imported only by a hub loading its plugins:
 
 ```toml
 [project.entry-points.showrunner]
@@ -57,42 +56,41 @@ plugin = family.showrunner_plugin()
 ```
 
 The plugin's `__name__` is the member's name, which `[plugins] disabled`
-matches, and its settings are the hub's `[plugins.<name>]` table.
+matches; its settings are the hub's `[plugins.<name>]` table.
 
-- **It asks what the hub is first.** It hosts nothing, and says why once, when
-  the hub does not declare `showrunner_hub_identity` and
-  `showrunner_family_members`, or names another family than the member's. The
-  member's routes then answer 503 with the reason.
+- **It asks what the hub is first.** When the hub lacks
+  `showrunner_hub_identity` or `showrunner_family_members`, or names another
+  family than the member's, it hosts nothing and says why once; the member's
+  routes answer 503 with the reason.
 - **It hands the hub's coordinator the member's `receive`** through
-  `showrunner_family_members`, found at each call, so a cue is delivered by a
-  call and audited as `via: "local"`. A URL for the same name in
-  `[plugins.family.members]` wins over the hosted member.
-- **A member that cannot start is not ready, and the hub runs on.** `make` or
-  `start` raising, a device not plugged in, leaves its routes answering 503
-  saying why. The start is tried again after 1, 2, 4… seconds up to the
-  plugin's `retry_cap` (30 s when not given), until it succeeds or the hub
-  stops. The reason is logged once, and again only when it changes.
+  `showrunner_family_members`, so a cue is delivered by a call and audited as
+  `via: "local"`. A URL for the same name in `[plugins.family.members]` wins
+  over the hosted member.
+- **A member that cannot start leaves the hub running.** When `make` or
+  `start` raises, say for a device not plugged in, its routes answer 503 with
+  the reason, and the start is tried again after 1, 2, 4… seconds up to the
+  plugin's `retry_cap` (30 s by default) until it succeeds or the hub stops.
+  The reason is logged once, and again when it changes.
 
 ## What a hub owes a member it hosts
 
 - `start` and `stop`, once each, on the server's own lifecycle.
-- A failure at start, stop or delivery recorded against that member, and the
+- A failure at start, stop or delivery recorded against that member, with the
   others carried on.
 - The member imported only when it is enabled.
-- The member's own settings table, and nothing else of the hub's
-  configuration.
+- The member's own settings table, and nothing else of the hub's.
 
 hearth's plugin does the first and the last, and catches its own member's
 failure to start. The hub's coordinator records each delivery's failure
-against its member. Isolating every other plugin's startup, and importing
-only what is enabled, are the hub's.
+against its member. Isolating every plugin's startup, and importing only what
+is enabled, are the hub's.
 
 ## Beside the hub, kept running
 
 `hearth.supervise` starts members served alone, knows each is up when its
-`/family/identity` answers, and starts one again when it stops: 1 s after each
-of its first three exits, then after a wait doubling to 60 s, never giving
-up, as Bitfocus Companion restarts its modules.
+`/family/identity` answers, and restarts one that stops: 1 s after each of
+its first three exits, then after a wait doubling to 60 s, never giving up, as
+Bitfocus Companion restarts its modules.
 
 ```python
 from hearth.supervise import Spec, Supervisor
@@ -109,9 +107,9 @@ that took it, so the hub credits each delivery to the right one.
 
 ## Following from a page
 
-`src/hearth/static/follow.js` is a classic script. Vendor it beside the page
-and load it with a `<script>` tag, or import it for its effect from a bundle;
-both call `hearth.follow`:
+`src/hearth/static/follow.js` is a classic script: vendor it beside the page
+and load it with a `<script>` tag, or import it for its effect from a bundle.
+Both give `hearth.follow`:
 
 ```js
 const stop = hearth.follow({events: '/family/events', state: '/family/state'},
@@ -120,14 +118,14 @@ const stop = hearth.follow({events: '/family/events', state: '/family/state'},
 ```
 
 It follows the stream, polls `state` only while the stream is down, and
-reopens a stream the browser has given up on every ten seconds. Draw from the
+reopens a stream the browser gave up on every ten seconds. Draw from the
 snapshot alone: a page that missed an event draws the same thing at the next.
 
 ## Testing a member
 
 `hearth.testing` serves a member over a real socket and stands in for
-ShowRunner, so a member's tests hold it to the contract without a copy of
-either:
+ShowRunner, so a member's tests hold it to the contract with a copy of
+neither:
 
 ```python
 from hearth import conformance, testing, web

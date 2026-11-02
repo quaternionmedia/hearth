@@ -57,7 +57,7 @@ jobs:
   adr-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Only the governance submodule, initialised below. `submodules: true`
           # is all-or-nothing: a project with a private submodule the runner
@@ -72,7 +72,7 @@ jobs:
       - name: Check out the governance submodule only
         run: git submodule update --init "$QM_SUBMODULE"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 

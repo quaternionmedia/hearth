@@ -43,14 +43,14 @@ jobs:
   signatures:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
           # The whole range must be readable. A shallow checkout reports commits
           # as missing rather than as unsigned, which is a different finding.
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 

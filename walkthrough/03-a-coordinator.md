@@ -7,10 +7,9 @@
 A coordinator is the other side of the contract: something fires, and it hands
 each member the part of the family block that names it. hearth holds it as one
 text, `hearth.coordinator`, which an exemplar imports from `qm-hearth` or
-copies whole, and runs beside its own code; this page imports it. It
-is an exemplar at its smallest, a looper whose downbeat is what fires, with a
-clock hosted in its process and a page that reads its action, and shows what
-the coordinator keeps.
+copies whole, and runs beside its own code; this page imports it. It is an
+exemplar at its smallest: a looper whose downbeat fires, with a clock hosted
+in its process and a page that reads its action.
 
 ```python
 >>> import hearth
@@ -122,5 +121,4 @@ True
 
 ```
 
-Such a change goes to the template instead, and every exemplar takes it by
-forking again.
+A change goes to the template, and every copy takes it by forking again.
