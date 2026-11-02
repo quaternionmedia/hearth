@@ -3,10 +3,9 @@
 > **Runtime: hermetic.** No port, no browser: the member is called in this
 > process.
 
-A member of the performing family says two things: what an action changes,
-and what its state is. Everything else a member does is the same for every
-member, and hearth does it once. This page builds the smallest member worth
-having, a show clock, and shows what hearth does with it.
+A member says two things: what an action changes, and what its state is.
+Everything else is the same for every member, and hearth does it once. This
+page builds the smallest member worth having, a show clock.
 
 ```python
 >>> import hearth
@@ -33,16 +32,15 @@ having, a show clock, and shows what hearth does with it.
 
 ```
 
-`understand` returns the change unmade, or refuses. hearth makes the change only
-once nothing is left to refuse, so a cue is either acted on whole or not at
-all.
+`understand` returns the change unmade, or refuses. hearth makes the change
+only once nothing is left to refuse, so a cue is acted on whole or not at all.
 
 ## A cue
 
-The hub delivers each member its part of a cue's `family` block, as the body
-of `POST /family/cue`. `receive` is that route without the route; its answer
-names the instance that took the cue, so a hub attributes the delivery to it
-even if the member restarted since the hub last asked:
+The hub delivers each member its part of a cue's `family` block as the body of
+`POST /family/cue`. `receive` is that route without the route. Its answer
+names the instance that took the cue, so a hub credits the delivery to it even
+after a restart:
 
 ```python
 >>> cue = {"number": "3", "name": "Second tune", "fired_at": None}
@@ -95,8 +93,7 @@ worker, calls `changed()` when it does.
 
 ## What it is
 
-Before anybody attributes a measurement to whatever answers a port, they can
-ask it:
+Before attributing a measurement to whatever answers a port, ask it:
 
 ```python
 >>> said = clock.identity()
