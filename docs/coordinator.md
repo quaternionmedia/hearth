@@ -11,17 +11,19 @@ runs it one of two ways:
 - **Copy it whole** with `hearth fork`, where the app's maintainer takes no
   dependency. ShowRunner runs such a copy.
 
+apothecary imports it, as the `irl` family's hub.
+
 Either way the exemplar writes what is its own in a module beside it.
 
 ## What an exemplar supplies
 
-| | ShowRunner | The looper in `tests/test_coordinator.py` |
-|---|---|---|
-| What fires, and when | a cue: the programmer's GO, or any path that announces `cue.fired` | the downbeat of a bar, at `POST /beat` |
-| Where the block is | the cue's `actions["family"]` | its own |
-| Where the coordinator runs | ShowFamily, a pluggy plugin in `plugins/family/__init__.py`, beside its copy in `plugins/family/coordinator.py`; its table is `[plugins.family]` | a FastAPI app; its table is `[looper.family]` |
-| The members in its own process | members of `show-control`, from `showrunner_family_members` | none |
-| What it is | `showrunner`, of `show-control` | `looper`, of `instruments` |
+| | ShowRunner | The looper in `tests/test_coordinator.py` | apothecary |
+|---|---|---|---|
+| What fires, and when | a cue: the programmer's GO, or any path that announces `cue.fired` | the downbeat of a bar, at `POST /beat` | a hold of a site's wiring, when the wiring changes or is sent |
+| Where the block is | the cue's `actions["family"]` | its own | its own, one member's action to a delivery |
+| Where the coordinator runs | ShowFamily, a pluggy plugin in `plugins/family/__init__.py`, beside its copy in `plugins/family/coordinator.py`; its table is `[plugins.family]` | a FastAPI app; its table is `[looper.family]` | imported, in `apothecary/family/hub.py`, on its FastAPI app; its table is `family.json` in the state folder |
+| The members in its own process | members of `show-control`, from `showrunner_family_members` | none | none |
+| What it is | `showrunner`, of `show-control` | `looper`, of `instruments` | `apothecary`, of `irl` |
 
 ```python
 from hearth import coordinator   # in a copy's exemplar: from . import coordinator
