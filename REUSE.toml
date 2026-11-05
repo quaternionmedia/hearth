@@ -20,7 +20,7 @@ SPDX-License-Identifier = "MPL-2.0"
 # Carried verbatim from the corpus's project-seed/ide and meant to be copied
 # onward; they keep the licence they had in the corpus.
 [[annotations]]
-path = ["AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md"]
+path = ["AGENTS.md", "CLAUDE.md"]
 precedence = "override"
 SPDX-FileCopyrightText = "Copyright (c) 2026 Quaternion Media"
 SPDX-License-Identifier = "CC0-1.0"
